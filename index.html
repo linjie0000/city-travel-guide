@@ -1043,7 +1043,7 @@
             if (platform === 'xhs') {
                 window.open(`https://www.xiaohongshu.com/search_result?keyword=${encoded}&source=web_explore_feed`, '_blank', 'noopener');
             } else {
-                window.open(`https://www.douyin.com/search?keyword=${encoded}`, '_blank', 'noopener');
+                window.open(`https://www.douyin.com/search/${encoded}`, '_blank', 'noopener');
             }
         }
 
@@ -1055,7 +1055,7 @@
             if (!isMobile()) {
                 const webUrl = platform === 'xhs'
                     ? `https://www.xiaohongshu.com/search_result?keyword=${encoded}&source=web_explore_feed`
-                    : `https://www.douyin.com/search?keyword=${encoded}`;
+                    : `https://www.douyin.com/search/${encoded}`;
                 window.open(webUrl, '_blank', 'noopener');
                 return;
             }
