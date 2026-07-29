@@ -962,23 +962,15 @@
             showJumpToast('正在打开APP...');
 
             if (platform === 'xhs') {
-                // iOS 和 Android 都用 scheme 拉起APP
+                // 小红书：scheme 支持 keyword 参数直接搜索
                 const appScheme = `xhsdiscover://search/result?keyword=${encoded}`;
-                if (isIOS()) {
-                    // iOS: 用隐藏 iframe 尝试拉起，监听页面可见性判断是否成功
-                    tryOpenAppScheme(appScheme, '小红书');
-                } else {
-                    // Android: 直接设置 location，2.5秒后检测是否失败
-                    tryOpenAppScheme(appScheme, '小红书');
-                }
+                tryOpenAppScheme(appScheme, '小红书');
             } else {
-                // 抖音
-                const appScheme = `snssdk1128://search/detail?keyword=${encoded}`;
-                if (isIOS()) {
-                    tryOpenAppScheme(appScheme, '抖音');
-                } else {
-                    tryOpenAppScheme(appScheme, '抖音');
-                }
+                // 抖音：scheme 不支持直接搜索关键词
+                // 用 webview scheme 在抖音APP内打开移动端搜索页，实现拉起APP+自动搜索
+                const searchUrl = encodeURIComponent(`https://so.douyin.com/s?keyword=${encoded}`);
+                const appScheme = `snssdk1128://webview?url=${searchUrl}&from=webview&refer=web`;
+                tryOpenAppScheme(appScheme, '抖音');
             }
         }
 
@@ -1043,7 +1035,9 @@
             if (platform === 'xhs') {
                 window.open(`https://www.xiaohongshu.com/search_result?keyword=${encoded}&source=web_explore_feed`, '_blank', 'noopener');
             } else {
-                window.open(`https://www.douyin.com/search/${encoded}`, '_blank', 'noopener');
+                // 手机端用移动版搜索URL，确保自动搜索
+                const dyUrl = isMobile() ? `https://so.douyin.com/s?keyword=${encoded}` : `https://www.douyin.com/search/${encoded}`;
+                window.open(dyUrl, '_blank', 'noopener');
             }
         }
 
