@@ -3,6 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563EB">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="文旅助手">
+    <link rel="manifest" href="./manifest.json">
     <title>城市文旅查询助手</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -226,6 +231,64 @@
 
         .fade-in { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ============ Bottom Action Sheet ============ */
+        .action-sheet-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.45); z-index: 99990;
+            display: none; align-items: flex-end; justify-content: center;
+            animation: fadeInOverlay 0.2s ease;
+        }
+        .action-sheet-overlay.active { display: flex; }
+        @keyframes fadeInOverlay { from { opacity: 0; } to { opacity: 1; } }
+
+        .action-sheet {
+            width: 100%; max-width: 420px;
+            background: white; border-radius: 16px 16px 0 0;
+            padding: 8px 0 24px; overflow: hidden;
+            animation: slideUp 0.25s ease;
+        }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .action-sheet-handle {
+            width: 36px; height: 4px; background: #D1D5DB; border-radius: 2px;
+            margin: 8px auto 12px;
+        }
+        .action-sheet-title {
+            font-size: 14px; font-weight: 600; color: var(--text);
+            text-align: center;
+            padding: 0 20px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .action-sheet-btn {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; padding: 14px 20px;
+            font-size: 15px; font-weight: 500; border: none;
+            background: transparent; color: var(--text); cursor: pointer;
+            transition: background 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .action-sheet-btn:hover, .action-sheet-btn:active { background: var(--bg); }
+        .action-sheet-btn.app { color: var(--primary); font-weight: 600; }
+        .action-sheet-btn.web { color: var(--green); }
+        .action-sheet-btn.cancel { color: var(--text-light); font-size: 14px; border-top: 1px solid var(--border); margin-top: 4px; }
+        .action-sheet-btn .icon { font-size: 20px; line-height: 1; }
+
+        /* ============ Wechat Banner with close ============ */
+        .wechat-banner {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 9998;
+            background: #FFF3CD; color: #856404; padding: 8px 36px 8px 16px;
+            font-size: 12px; text-align: center; line-height: 1.5;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+        .wechat-banner-close {
+            position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+            width: 22px; height: 22px; border: none; background: transparent;
+            color: #856404; font-size: 16px; line-height: 22px; cursor: pointer;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .wechat-banner-close:hover { background: rgba(133,100,4,0.1); }
     </style>
 </head>
 <body>
@@ -255,6 +318,21 @@
 
     <!-- Jump toast for mobile feedback -->
     <div class="jump-toast" id="jumpToast"></div>
+
+    <!-- Action Sheet (bottom popup for mobile jump choice) -->
+    <div class="action-sheet-overlay" id="actionSheetOverlay" onclick="closeActionSheet(event)">
+        <div class="action-sheet" onclick="event.stopPropagation()">
+            <div class="action-sheet-handle"></div>
+            <div class="action-sheet-title" id="actionSheetTitle">选择打开方式</div>
+            <button class="action-sheet-btn app" id="actionSheetAppBtn" onclick="actionSheetAppAction()">
+                <span class="icon">📱</span> 打开APP
+            </button>
+            <button class="action-sheet-btn web" id="actionSheetWebBtn" onclick="actionSheetWebAction()">
+                <span class="icon">🌐</span> 打开网页版
+            </button>
+            <button class="action-sheet-btn cancel" onclick="closeActionSheet()">取消</button>
+        </div>
+    </div>
 
     <script>
         // ============================================================
@@ -859,8 +937,64 @@
             setTimeout(() => toast.classList.remove('show'), 2500);
         }
 
+        // ============ Action Sheet 逻辑 ============
+        var _pendingJump = null; // { platform, keyword }
+
+        function showActionSheet(platform, keyword, platformName) {
+            _pendingJump = { platform, keyword };
+            document.getElementById('actionSheetTitle').textContent = `选择打开${platformName}的方式`;
+            document.getElementById('actionSheetOverlay').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeActionSheet(event) {
+            if (event && event.target !== document.getElementById('actionSheetOverlay')) return;
+            document.getElementById('actionSheetOverlay').classList.remove('active');
+            document.body.style.overflow = '';
+            _pendingJump = null;
+        }
+
+        function actionSheetAppAction() {
+            const { platform, keyword } = _pendingJump;
+            const encoded = encodeURIComponent(keyword);
+            closeActionSheet();
+
+            if (platform === 'xhs') {
+                if (isIOS()) {
+                    // iOS: Universal Link（装了APP自动拉起，没装打开网页）
+                    window.location.href = `https://www.xiaohongshu.com/search_result?keyword=${encoded}&source=web_explore_feed`;
+                } else {
+                    // Android: scheme拉起
+                    window.location.href = `xhsdiscover://search/result?keyword=${encoded}`;
+                }
+            } else {
+                // 抖音
+                if (isIOS()) {
+                    // iOS: 抖音网页版会自动弹窗拉起APP
+                    window.location.href = `https://www.douyin.com/search/${encoded}`;
+                } else {
+                    // Android: scheme拉起
+                    window.location.href = `snssdk1128://search/detail?keyword=${encoded}`;
+                }
+            }
+            showJumpToast('正在打开APP...');
+        }
+
+        function actionSheetWebAction() {
+            const { platform, keyword } = _pendingJump;
+            const encoded = encodeURIComponent(keyword);
+            closeActionSheet();
+
+            if (platform === 'xhs') {
+                window.open(`https://www.xiaohongshu.com/search_result?keyword=${encoded}&source=web_explore_feed`, '_blank', 'noopener');
+            } else {
+                window.open(`https://www.douyin.com/search/${encoded}`, '_blank', 'noopener');
+            }
+        }
+
         function openSearch(platform, keyword) {
             const encoded = encodeURIComponent(keyword);
+            const platformName = platform === 'xhs' ? '小红书' : '抖音';
 
             // ============ 电脑端：直接新标签页打开网页搜索 ============
             if (!isMobile()) {
@@ -877,50 +1011,8 @@
                 return;
             }
 
-            // ============ 手机端浏览器 ============
-            if (platform === 'xhs') {
-                // 小红书：先尝试 Deep Link 拉起APP，2秒后回退到网页
-                if (isIOS()) {
-                    // iOS: 用 Universal Link（装了APP自动拉起，没装打开网页）
-                    const universalLink = `https://www.xiaohongshu.com/search_result?keyword=${encoded}&source=web_explore_feed`;
-                    showJumpToast('正在打开小红书...');
-                    window.location.href = universalLink;
-                    // 如果APP没装，Universal Link 会直接在浏览器打开网页版
-                } else {
-                    // Android: 先尝试 scheme 拉起APP
-                    const appScheme = `xhsdiscover://search/result?keyword=${encoded}`;
-                    const webFallback = `https://www.xiaohongshu.com/search_result?keyword=${encoded}&source=web_explore_feed`;
-                    showJumpToast('正在打开小红书...');
-                    const start = Date.now();
-                    window.location.href = appScheme;
-                    // 如果拉起失败（2秒内页面未隐藏），则跳网页版
-                    setTimeout(() => {
-                        if (Date.now() - start < 2500) {
-                            window.open(webFallback, '_blank', 'noopener');
-                        }
-                    }, 2000);
-                }
-            } else {
-                // 抖音
-                if (isIOS()) {
-                    // iOS: 抖音网页版会自动弹窗拉起APP
-                    const webUrl = `https://www.douyin.com/search/${encoded}`;
-                    showJumpToast('正在打开抖音...');
-                    window.location.href = webUrl;
-                } else {
-                    // Android: 先尝试 scheme，回退到网页
-                    const appScheme = `snssdk1128://search/detail?keyword=${encoded}`;
-                    const webFallback = `https://www.douyin.com/search/${encoded}`;
-                    showJumpToast('正在打开抖音...');
-                    const start = Date.now();
-                    window.location.href = appScheme;
-                    setTimeout(() => {
-                        if (Date.now() - start < 2500) {
-                            window.open(webFallback, '_blank', 'noopener');
-                        }
-                    }, 2000);
-                }
-            }
+            // ============ 手机端浏览器：弹出底部选择框 ============
+            showActionSheet(platform, keyword, platformName);
         }
 
         // ============================================================
@@ -1615,9 +1707,90 @@
         // 微信环境检测
         if (isWechat()) {
             const banner = document.createElement('div');
-            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;background:#FFF3CD;color:#856404;padding:8px 16px;font-size:12px;text-align:center;line-height:1.5;';
-            banner.innerHTML = '⚠️ 微信内无法跳转APP，请点击右上角 <strong>···</strong> 选择「在浏览器中打开」';
+            banner.className = 'wechat-banner';
+            banner.id = 'wechatBanner';
+            banner.innerHTML = '⚠️ 微信内无法跳转APP，请点击右上角 <strong>···</strong> 选择「在浏览器中打开」<button class="wechat-banner-close" onclick="document.getElementById(\'wechatBanner\').remove()" aria-label="关闭">✕</button>';
             document.body.insertBefore(banner, document.body.firstChild);
+        }
+
+        // ============ PWA: 注册 Service Worker ============
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').then(reg => {
+                console.log('SW registered:', reg.scope);
+            }).catch(err => {
+                console.warn('SW registration failed:', err);
+            });
+        }
+
+        // ============ PWA: 添加到桌面引导横幅 ============
+        (function() {
+            // 仅在手机端且非微信内显示
+            if (!isMobile() || isWechat()) return;
+            // 已安装或已关闭过，不再显示
+            if (localStorage.getItem('pwa-install-dismissed')) return;
+            // 如果已是 standalone 模式（已添加到桌面），不显示
+            if (window.matchMedia('(display-mode: standalone)').matches) return;
+
+            const addBanner = document.createElement('div');
+            addBanner.id = 'pwaInstallBanner';
+            addBanner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9997;background:linear-gradient(135deg,#2563EB,#7C3AED);color:white;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:13px;box-shadow:0 -2px 12px rgba(0,0,0,0.15);';
+            addBanner.innerHTML = `
+                <span style="font-size:24px;">📲</span>
+                <div style="flex:1;line-height:1.5;">
+                    <strong>添加到桌面</strong><br>
+                    <span style="font-size:11px;opacity:0.85;">像APP一样使用，随时查询城市文旅信息</span>
+                </div>
+                <button onclick="triggerPwaInstall()" style="background:white;color:#2563EB;border:none;padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">添加</button>
+                <button onclick="dismissPwaBanner()" style="background:transparent;color:white;border:none;font-size:18px;cursor:pointer;padding:0 4px;line-height:1;opacity:0.7;">✕</button>
+            `;
+            document.body.appendChild(addBanner);
+
+            // 延迟显示，避免首次加载就弹出
+            setTimeout(() => {
+                if (!localStorage.getItem('pwa-install-dismissed')) {
+                    addBanner.style.display = 'flex';
+                }
+            }, 3000);
+            addBanner.style.display = 'none';
+        })();
+
+        var _deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            _deferredPrompt = e;
+        });
+
+        function triggerPwaInstall() {
+            if (_deferredPrompt) {
+                _deferredPrompt.prompt();
+                _deferredPrompt.userChoice.then(function() {
+                    _deferredPrompt = null;
+                    dismissPwaBanner();
+                });
+            } else {
+                // 不支持 beforeinstallprompt（iOS），显示手动引导
+                var guide = document.createElement('div');
+                guide.id = 'pwaManualGuide';
+                guide.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;display:flex;align-items:center;justify-content:center;';
+                guide.innerHTML = `
+                    <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);" onclick="document.getElementById('pwaManualGuide').remove()"></div>
+                    <div style="position:relative;background:white;border-radius:16px;padding:24px 20px;max-width:320px;width:90%;text-align:center;">
+                        <div style="font-size:36px;margin-bottom:12px;">📲</div>
+                        <h3 style="font-size:16px;margin-bottom:12px;">添加到桌面</h3>
+                        <div style="font-size:13px;color:#64748B;line-height:1.8;text-align:left;">
+                            ${isIOS() ? '<strong>iOS Safari：</strong><br>点击底部 <strong style="font-size:16px;">⬆️</strong> 分享按钮 → 选择「添加到主屏幕」' : '<strong>Android Chrome：</strong><br>点击右上角 <strong style="font-size:16px;">⋮</strong> 菜单 → 选择「添加到主屏幕」或「安装应用」'}
+                        </div>
+                        <button onclick="document.getElementById('pwaManualGuide').remove();dismissPwaBanner()" style="margin-top:16px;background:#2563EB;color:white;border:none;padding:10px 28px;border-radius:8px;font-size:14px;cursor:pointer;">知道了</button>
+                    </div>
+                `;
+                document.body.appendChild(guide);
+            }
+        }
+
+        function dismissPwaBanner() {
+            var el = document.getElementById('pwaInstallBanner');
+            if (el) el.remove();
+            try { localStorage.setItem('pwa-install-dismissed', '1'); } catch(e) {}
         }
     </script>
 </body>
