@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>城市文旅查询助手</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #2563EB;
+            --primary-light: #DBEAFE;
+            --accent: #F59E0B;
+            --accent-light: #FEF3C7;
+            --green: #10B981;
+            --green-light: #D1FAE5;
+            --bg: #F8FAFC;
+            --card: #FFFFFF;
+            --text: #1E293B;
+            --text-secondary: #64748B;
+            --text-light: #94A3B8;
+            --border: #E2E8F0;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+            --radius: 16px;
+            --radius-sm: 8px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        /* ============ Header ============ */
+        header {
+            background: linear-gradient(135deg, #2563EB 0%, #7C3AED 100%);
+            color: white;
+            padding: 36px 20px 72px;
+            text-align: center;
+        }
+        header h1 { font-size: 24px; font-weight: 700; margin-bottom: 6px; letter-spacing: 1px; }
+        header p { font-size: 13px; opacity: 0.85; }
+
+        /* ============ Search ============ */
+        .search-container {
+            max-width: 560px;
+            margin: -48px auto 0;
+            padding: 0 16px;
+            position: relative;
+            z-index: 10;
+        }
+        .search-box {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            padding: 6px;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .search-box input {
+            flex: 1; border: none; outline: none;
+            padding: 12px 14px; font-size: 16px;
+            background: transparent; color: var(--text);
+            min-width: 0;
+        }
+        .search-box input::placeholder { color: var(--text-light); }
+        .search-box button {
+            background: var(--primary); color: white; border: none;
+            border-radius: var(--radius-sm); padding: 10px 20px;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: all 0.2s; white-space: nowrap;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .search-box button:hover { background: #1D4ED8; }
+        .search-box button:active { transform: scale(0.97); }
+
+        .quick-cities { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 12px; }
+        .quick-cities button {
+            background: rgba(255, 255, 255, 0.9); border: none;
+            border-radius: 20px; padding: 5px 14px; font-size: 12px;
+            color: var(--primary); cursor: pointer; transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .quick-cities button:hover, .quick-cities button:active { background: white; box-shadow: var(--shadow); }
+
+        /* ============ Main ============ */
+        main { max-width: 1000px; margin: 0 auto; padding: 24px 16px 60px; }
+
+        /* ============ Loading ============ */
+        .loading { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+        .loading .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid var(--primary-light);
+            border-top-color: var(--primary);
+            border-radius: 50%; margin: 0 auto 16px;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ============ Section Title ============ */
+        .section-title {
+            font-size: 18px; font-weight: 700; margin-bottom: 12px;
+            display: flex; align-items: center; gap: 8px;
+        }
+
+        /* ============ Weather Card ============ */
+        .weather-card {
+            background: var(--card); border-radius: var(--radius);
+            box-shadow: var(--shadow); padding: 24px; margin-bottom: 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 16px; position: relative; overflow: hidden;
+        }
+        .weather-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+        }
+        .weather-main { display: flex; align-items: center; gap: 16px; }
+        .weather-icon { font-size: 52px; line-height: 1; }
+        .weather-temp { display: flex; flex-direction: column; }
+        .weather-temp .temp { font-size: 40px; font-weight: 700; color: var(--text); line-height: 1.1; }
+        .weather-temp .desc { font-size: 14px; color: var(--text-secondary); }
+
+        .weather-details {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+            gap: 8px; flex: 1; max-width: 400px;
+        }
+        .weather-detail-item { text-align: center; padding: 10px 6px; background: var(--bg); border-radius: var(--radius-sm); }
+        .weather-detail-item .label { font-size: 11px; color: var(--text-light); margin-bottom: 2px; }
+        .weather-detail-item .value { font-size: 14px; font-weight: 600; color: var(--text); }
+
+        /* ============ Content Grid ============ */
+        .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .content-section h2 {
+            font-size: 16px; font-weight: 700; margin-bottom: 12px;
+            display: flex; align-items: center; gap: 8px;
+        }
+
+        /* ============ Item Card ============ */
+        .item-card {
+            background: var(--card); border-radius: var(--radius-sm);
+            box-shadow: var(--shadow); padding: 14px 16px; margin-bottom: 10px;
+            transition: all 0.2s; border-left: 3px solid transparent;
+            position: relative;
+        }
+        .item-card:hover { box-shadow: var(--shadow-lg); transform: translateX(4px); }
+
+        .item-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+
+        .search-links { display: flex; gap: 6px; flex-shrink: 0; }
+        .search-btn {
+            font-size: 11px; font-weight: 600; text-decoration: none;
+            padding: 5px 10px; border-radius: 6px; border: none; cursor: pointer;
+            transition: all 0.2s; white-space: nowrap; display: inline-flex;
+            align-items: center; gap: 3px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .search-btn.xhs { background: #FFF0F2; color: #FF2442; }
+        .search-btn.xhs:hover { background: #FF2442; color: white; }
+        .search-btn.dy { background: #F3F3F3; color: #161823; }
+        .search-btn.dy:hover { background: #161823; color: white; }
+        .content-section:nth-child(1) .item-card { border-left-color: var(--accent); }
+        .content-section:nth-child(2) .item-card { border-left-color: var(--green); }
+
+        .item-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
+        .item-name-wrap { display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0; }
+        .item-number {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 20px; height: 20px; border-radius: 50%;
+            background: var(--primary); color: white;
+            font-size: 11px; font-weight: 700; flex-shrink: 0;
+        }
+        .item-name { font-size: 14px; font-weight: 600; color: var(--text); word-break: break-all; }
+        .item-type-badge {
+            font-size: 10px; padding: 1px 5px; border-radius: 4px;
+            background: var(--accent-light); color: #92400E; white-space: nowrap; line-height: 1.4;
+        }
+        .item-type-badge.green { background: var(--green-light); color: #065F46; }
+
+        .item-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: var(--text-secondary); margin-bottom: 3px; }
+        .item-meta span { display: flex; align-items: center; gap: 2px; }
+
+        .item-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+        .item-tags { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+        .item-tag {
+            font-size: 10px; padding: 1px 6px; border-radius: 10px;
+            background: var(--primary-light); color: var(--primary);
+        }
+        .item-tag.green { background: var(--green-light); color: var(--green); }
+        .item-tag.amber { background: var(--accent-light); color: #92400E; }
+
+        /* ============ Error / Empty ============ */
+        .error-msg, .empty-msg { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+        .error-msg { color: #EF4444; }
+
+        .data-source { font-size: 10px; color: var(--text-light); margin-top: 2px; font-weight: 400; }
+
+        /* ============ App Jump Toast ============ */
+        .jump-toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: white; padding: 10px 20px;
+            border-radius: 20px; font-size: 13px; z-index: 9999;
+            opacity: 0; transition: opacity 0.3s; pointer-events: none;
+            white-space: nowrap; max-width: 90vw; text-align: center;
+        }
+        .jump-toast.show { opacity: 1; }
+
+        footer { text-align: center; padding: 20px; color: var(--text-light); font-size: 11px; }
+
+        /* ============ Responsive ============ */
+        @media (max-width: 700px) {
+            header { padding: 28px 16px 60px; }
+            header h1 { font-size: 20px; }
+            .weather-card { padding: 16px; flex-direction: column; align-items: flex-start; }
+            .weather-icon { font-size: 40px; }
+            .weather-temp .temp { font-size: 32px; }
+            .weather-details { max-width: 100%; width: 100%; }
+            .content-grid { grid-template-columns: 1fr; gap: 16px; }
+            .item-name { font-size: 13px; }
+            .search-btn { font-size: 10px; padding: 4px 8px; }
+        }
+
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🏙️ 城市文旅查询助手</h1>
+        <p>输入城市名称，一键查询天气、美食与景点</p>
+    </header>
+
+    <div class="search-container">
+        <div class="search-box">
+            <input type="text" id="cityInput" placeholder="输入城市名称，如：广州、大理、赛里木湖..." autocomplete="off">
+            <button id="searchBtn" onclick="handleSearch()">🔍 查询</button>
+        </div>
+        <div class="quick-cities" id="quickCities"></div>
+    </div>
+
+    <main id="result">
+        <div class="empty-msg">
+            <p style="font-size: 48px; margin-bottom: 16px;">🗺️</p>
+            <p>输入城市名称开始探索吧</p>
+        </div>
+    </main>
+
+    <footer>
+        <p>数据来源：Open-Meteo（天气）· OpenStreetMap（美食景点）· 内置数据库 · 网络抓取（百科/搜索）</p>
+    </footer>
+
+    <!-- Jump toast for mobile feedback -->
+    <div class="jump-toast" id="jumpToast"></div>
+
+    <script>
+        // ============================================================
+        // WMO 天气代码映射表
+        // ============================================================
+        const WMO_CODES = {
+            0:{text:"晴天",emoji:"☀️"},1:{text:"大部晴朗",emoji:"🌤️"},2:{text:"多云",emoji:"⛅"},3:{text:"阴天",emoji:"☁️"},
+            45:{text:"雾",emoji:"🌫️"},48:{text:"雾凇",emoji:"🌫️"},
+            51:{text:"小毛毛雨",emoji:"🌦️"},53:{text:"中毛毛雨",emoji:"🌦️"},55:{text:"大毛毛雨",emoji:"🌧️"},
+            56:{text:"冻毛毛雨",emoji:"🌧️"},57:{text:"强冻毛毛雨",emoji:"🌧️"},
+            61:{text:"小雨",emoji:"🌦️"},63:{text:"中雨",emoji:"🌧️"},65:{text:"大雨",emoji:"🌧️"},
+            66:{text:"冻雨",emoji:"🌧️"},67:{text:"强冻雨",emoji:"🌧️"},
+            71:{text:"小雪",emoji:"🌨️"},73:{text:"中雪",emoji:"🌨️"},75:{text:"大雪",emoji:"❄️"},77:{text:"雪粒",emoji:"❄️"},
+            80:{text:"阵雨",emoji:"🌦️"},81:{text:"中阵雨",emoji:"🌧️"},82:{text:"大阵雨",emoji:"⛈️"},
+            85:{text:"阵雪",emoji:"🌨️"},86:{text:"大阵雪",emoji:"❄️"},
+            95:{text:"雷暴",emoji:"⛈️"},96:{text:"雷暴伴冰雹",emoji:"⛈️"},99:{text:"强雷暴伴冰雹",emoji:"⛈️"}
+        };
+
+        function windDirection(deg) {
+            const dirs = ["北","东北偏北","东北","东北偏东","东","东南偏东","东南","东南偏南","南","西南偏南","西南","西南偏西","西","西北偏西","西北","西北偏北"];
+            return dirs[Math.round(deg / 22.5) % 16];
+        }
+
+        // 菜系映射
+        const CUISINE_MAP = {
+            'chinese':'中餐','cantonese':'粤菜','sichuan':'川菜','hot_pot':'火锅','hotpot':'火锅',
+            'japanese':'日料','sushi':'寿司','korean':'韩餐','italian':'意餐','french':'法餐',
+            'thai':'泰餐','indian':'印度菜','mexican':'墨西哥菜','american':'美式','burger':'汉堡',
+            'pizza':'披萨','noodle':'面食','seafood':'海鲜','barbecue':'烧烤','bbq':'烧烤',
+            'vegetarian':'素食','dessert':'甜品','coffee_shop':'咖啡','bakery':'烘焙','steak_house':'牛排',
+            'dim_sum':'早茶','regional':'地方菜','asian':'亚洲菜','international':'国际美食','kebab':'烤肉',
+            'mediterranean':'地中海菜','vietnamese':'越南菜','turkish':'土耳其菜','german':'德餐',
+            'ramen':'拉面','dumpling':'饺子','wonton':'馄饨','congee':'粥','noodles':'面食',
+            'sea_food':'海鲜','hot_pot':'火锅','dongbei':'东北菜','hunan':'湘菜','shandong':'鲁菜'
+        };
+        function cuisineToZh(cuisine) {
+            if (!cuisine) return null;
+            const parts = cuisine.split(/[;,/]/).map(s => s.trim()).filter(Boolean);
+            const translated = parts.map(p => CUISINE_MAP[p] || p);
+            return translated.join('、');
+        }
+
+        // 景点类型映射
+        const TOURISM_MAP = {
+            'attraction':'景点','museum':'博物馆','gallery':'美术馆','viewpoint':'观景台',
+            'theme_park':'主题公园','zoo':'动物园','aquarium':'水族馆','artwork':'艺术品',
+            'memorial':'纪念地','monastery':'寺院','castle':'城堡','ruins':'遗迹',
+            'yes':'景点','information':'游客中心','guest_house':'民宿','hotel':'酒店'
+        };
+
+        // ============================================================
+        // 省份 → 省会映射
+        // ============================================================
+        const PROVINCE_TO_CAPITAL = {
+            "北京":"北京","上海市":"上海","天津":"天津","重庆市":"重庆",
+            "河北":"石家庄","山西":"太原","辽宁":"沈阳","吉林":"长春","黑龙江":"哈尔滨",
+            "江苏":"南京","浙江省":"杭州","安徽":"合肥","福建":"福州","江西":"南昌","山东":"济南",
+            "河南省":"郑州","湖北省":"武汉","湖南省":"长沙","广东省":"广州","海南":"海口",
+            "四川":"成都","贵州省":"贵阳","云南省":"昆明","陕西":"西安","甘肃":"兰州","青海":"西宁",
+            "台湾":"台北","内蒙古":"呼和浩特","广西":"南宁","西藏":"拉萨","宁夏":"银川",
+            "新疆":"乌鲁木齐","香港":"香港","澳门":"澳门"
+        };
+        function getCapital(input) { return PROVINCE_TO_CAPITAL[input.trim()] || null; }
+
+        // ============================================================
+        // 知名景区坐标表（大幅扩充）
+        // ============================================================
+        const SCENIC_SPOTS = {
+            "赛里木湖":{lat:44.60,lon:81.15,region:"新疆博尔塔拉",bbox:[44.50,81.05,44.70,81.25],desc:"大西洋最后一滴眼泪"},
+            "喀纳斯":{lat:48.78,lon:87.04,region:"新疆阿勒泰",bbox:[48.70,86.95,48.85,87.15],desc:"神的后花园"},
+            "纳木错":{lat:30.72,lon:90.46,region:"西藏拉萨",bbox:[30.60,90.35,30.85,90.55],desc:"天湖"},
+            "青海湖":{lat:36.89,lon:100.19,region:"青海海北",bbox:[36.50,99.80,37.30,100.60],desc:"中国最大内陆湖"},
+            "泸沽湖":{lat:27.71,lon:100.79,region:"云南丽江",bbox:[27.65,100.70,27.78,100.88],desc:"女儿国"},
+            "稻城亚丁":{lat:28.43,lon:100.33,region:"四川甘孜",bbox:[28.30,100.20,28.55,100.45],desc:"最后的香格里拉"},
+            "九寨沟":{lat:33.17,lon:103.90,region:"四川阿坝",bbox:[33.05,103.80,33.28,104.00],desc:"童话世界"},
+            "黄山":{lat:30.13,lon:118.16,region:"安徽黄山",bbox:[30.05,118.05,30.20,118.28],desc:"天下第一奇山"},
+            "泰山":{lat:36.25,lon:117.10,region:"山东泰安",bbox:[36.15,117.00,36.35,117.20],desc:"五岳之首"},
+            "张家界":{lat:29.34,lon:110.48,region:"湖南张家界",bbox:[29.25,110.35,29.45,110.60],desc:"阿凡达取景地"},
+            "桂林":{lat:25.27,lon:110.29,region:"广西桂林",bbox:[25.15,110.20,25.40,110.40],desc:"山水甲天下"},
+            "呼伦贝尔":{lat:49.22,lon:119.77,region:"内蒙古呼伦贝尔",bbox:[49.10,119.60,49.35,119.95],desc:"最美草原"},
+            "敦煌":{lat:40.14,lon:94.66,region:"甘肃酒泉",bbox:[40.05,94.55,40.23,94.78],desc:"莫高窟"},
+            "茶卡盐湖":{lat:36.74,lon:99.08,region:"青海海西",bbox:[36.70,99.00,36.80,99.18],desc:"天空之镜"},
+            "布达拉宫":{lat:29.66,lon:91.12,region:"西藏拉萨",bbox:[29.60,91.05,29.70,91.18],desc:"雪域圣殿"},
+            "峨眉山":{lat:29.52,lon:103.33,region:"四川乐山",bbox:[29.45,103.25,29.60,103.42],desc:"普贤道场"},
+            "华山":{lat:34.48,lon:110.09,region:"陕西渭南",bbox:[34.40,110.00,34.55,110.18],desc:"奇险天下第一"},
+            "千岛湖":{lat:29.60,lon:119.02,region:"浙江杭州",bbox:[29.50,118.90,29.70,119.15],desc:"天下第一秀水"},
+            "鼓浪屿":{lat:24.45,lon:118.07,region:"福建厦门",bbox:[24.40,118.02,24.50,118.12],desc:"海上花园"},
+            "故宫":{lat:39.92,lon:116.39,region:"北京",bbox:[39.91,116.38,39.93,116.40],desc:"明清皇家宫殿"},
+            "西湖":{lat:30.25,lon:120.15,region:"浙江杭州",bbox:[30.22,120.12,30.28,120.18],desc:"人间天堂"},
+            "周庄":{lat:31.11,lon:120.85,region:"江苏苏州",bbox:[31.09,120.83,31.13,120.87],desc:"中国第一水乡"},
+            "乌镇":{lat:30.75,lon:120.48,region:"浙江嘉兴",bbox:[30.73,120.46,30.77,120.50],desc:"江南水乡古镇"},
+            "凤凰古城":{lat:27.95,lon:109.60,region:"湖南湘西",bbox:[27.93,109.57,27.97,109.63],desc:"最美小城"},
+            "丽江古城":{lat:26.87,lon:100.23,region:"云南丽江",bbox:[26.85,100.20,26.89,100.26],desc:"纳西古韵"},
+            "阳朔":{lat:24.78,lon:110.49,region:"广西桂林",bbox:[24.73,110.45,24.83,110.55],desc:"山水甲桂林"},
+            "泰山":{lat:36.25,lon:117.10,region:"山东泰安",bbox:[36.15,117.00,36.35,117.20],desc:"五岳之首"},
+            "武夷山":{lat:27.76,lon:118.03,region:"福建南平",bbox:[27.70,117.95,27.82,118.10],desc:"世界自然文化双遗产"},
+            "都江堰":{lat:30.99,lon:103.61,region:"四川成都",bbox:[30.96,103.58,31.02,103.64],desc:"千年水利工程"},
+            "莫高窟":{lat:40.04,lon:94.80,region:"甘肃酒泉",bbox:[40.02,94.78,40.06,94.82],desc:"东方艺术宝库"},
+            "长城":{lat:40.36,lon:116.02,region:"北京延庆",bbox:[40.34,116.00,40.38,116.05],desc:"世界奇迹"},
+            "颐和园":{lat:39.99,lon:116.27,region:"北京",bbox:[39.97,116.26,40.01,116.29],desc:"皇家园林"},
+            "天坛":{lat:39.88,lon:116.41,region:"北京",bbox:[39.86,116.39,39.90,116.43],desc:"祭天圣地"},
+            "拙政园":{lat:31.33,lon:120.63,region:"江苏苏州",bbox:[31.32,120.62,31.34,120.64],desc:"四大名园"},
+            "虎跳峡":{lat:27.18,lon:100.11,region:"云南丽江",bbox:[27.15,100.08,27.21,100.14],desc:"世界最深峡谷之一"},
+            "玉龙雪山":{lat:27.07,lon:100.18,region:"云南丽江",bbox:[27.03,100.15,27.11,100.22],desc:"纳西神山"},
+            "洱海":{lat:25.67,lon:100.18,region:"云南大理",bbox:[25.58,100.08,25.77,100.28],desc:"风花雪月"},
+            "三亚湾":{lat:18.25,lon:109.35,region:"海南三亚",bbox:[18.20,109.30,18.30,109.40],desc:"椰梦长廊"},
+            "亚龙湾":{lat:18.19,lon:109.63,region:"海南三亚",bbox:[18.17,109.60,18.22,109.66],desc:"天下第一湾"},
+            "天涯海角":{lat:18.29,lon:109.22,region:"海南三亚",bbox:[18.27,109.20,18.31,109.24],desc:"浪漫地标"},
+            "苍山":{lat:25.68,lon:100.06,region:"云南大理",bbox:[25.63,100.00,25.73,100.12],desc:"十九峰十八溪"},
+            "冰岛":{lat:64.14,lon:-21.90,region:"冰岛",bbox:[64.00,-22.10,64.30,-21.70],desc:"冰与火之国"},
+            "三亚":{lat:18.25,lon:109.50,region:"海南三亚",bbox:[18.15,109.35,18.35,109.65],desc:"东方夏威夷"},
+            "大理":{lat:25.59,lon:100.23,region:"云南大理",bbox:[25.55,100.15,25.65,100.35],desc:"风花雪月之城"},
+            "丽江":{lat:26.87,lon:100.23,region:"云南丽江",bbox:[26.80,100.15,26.95,100.35],desc:"纳西古韵"},
+            "拉萨":{lat:29.65,lon:91.10,region:"西藏拉萨",bbox:[29.55,91.00,29.75,91.20],desc:"日光城"},
+            "厦门":{lat:24.48,lon:118.09,region:"福建厦门",bbox:[24.40,118.05,24.55,118.15],desc:"海上花园"},
+            "青岛":{lat:36.07,lon:120.38,region:"山东青岛",bbox:[35.95,120.25,36.15,120.50],desc:"啤酒之城"},
+            "大连":{lat:38.91,lon:121.60,region:"辽宁大连",bbox:[38.80,121.50,39.00,121.75],desc:"北方明珠"},
+            "哈尔滨":{lat:45.75,lon:126.65,region:"黑龙江哈尔滨",bbox:[45.65,126.55,45.85,126.80],desc:"冰城"},
+            "苏州":{lat:31.30,lon:120.62,region:"江苏苏州",bbox:[31.20,120.55,31.40,120.70],desc:"上有天堂下有苏杭"},
+            "长沙":{lat:28.23,lon:112.94,region:"湖南长沙",bbox:[28.15,112.85,28.30,113.05],desc:"星城"},
+            "天津":{lat:39.13,lon:117.20,region:"天津",bbox:[39.05,117.10,39.20,117.35],desc:"津门"},
+            "郑州":{lat:34.75,lon:113.65,region:"河南郑州",bbox:[34.70,113.55,34.80,113.75],desc:"中原腹地"},
+            "兰州":{lat:36.06,lon:103.83,region:"甘肃兰州",bbox:[36.00,103.75,36.12,103.92],desc:"黄河之都"},
+            "福州":{lat:26.07,lon:119.30,region:"福建福州",bbox:[26.00,119.20,26.15,119.40],desc:"榕城"},
+            "合肥":{lat:31.82,lon:117.25,region:"安徽合肥",bbox:[31.75,117.15,31.90,117.35],desc:"庐州"},
+            "三亚":{lat:18.25,lon:109.50,region:"海南三亚",bbox:[18.15,109.35,18.35,109.65],desc:"东方夏威夷"}
+        };
+        function getScenicSpot(input) { return SCENIC_SPOTS[input.trim()] || null; }
+
+        // ============================================================
+        // 内置城市数据库（大幅扩充至25+城市）
+        // ============================================================
+        const CITY_DATABASE = {
+            "广州":{city:"广州",province:"广东",alias:["羊城","花城"],bbox:[23.05,113.22,23.20,113.40],
+                food:[
+                    {name:"广州酒家",desc:"中华老字号粤菜名店，文昌鸡与金牌乳猪为招牌，一盅两件叹早茶经典之选。",tags:["老字号","粤菜"],cuisine:"粤菜"},
+                    {name:"陶陶居",desc:"创于1880年的百年茶楼，虾饺皇与酥皮水牛奶菠萝包闻名，岭南饮食文化名片。",tags:["茶楼","百年"],cuisine:"粤菜"},
+                    {name:"炳胜品味",desc:"新派粤菜标杆，脆皮叉烧外脆内嫩，首创灌汤烧鹅汁水丰盈，宴客首选。",tags:["新派","叉烧"],cuisine:"粤菜"},
+                    {name:"点都德",desc:"新式全天候茶楼，金沙红米肠为原创招牌，近百款点心现点现蒸，人气爆棚。",tags:["点心","茶楼"],cuisine:"粤菜"},
+                    {name:"惠食佳",desc:"米其林一星啫啫煲专门店，黄鳝煲上桌滋滋作响，锅气十足尽显粤菜烟火气。",tags:["啫啫煲","米其林"],cuisine:"粤菜"}
+                ],
+                attractions:[
+                    {name:"广州塔",desc:"600米高小蛮腰地标，摩天轮与极速云霄刺激体验，登顶俯瞰珠江新城全景。",tags:["地标","夜景"]},
+                    {name:"沙面岛",desc:"欧陆风情建筑博览岛，百年领事馆与教堂林立，榕荫下咖啡香弥漫文艺气息。",tags:["欧陆","文艺"]},
+                    {name:"陈家祠",desc:"岭南建筑艺术明珠，三雕两塑一铸精美绝伦，广东民间工艺博物馆藏品丰富。",tags:["建筑","工艺"]},
+                    {name:"永庆坊",desc:"西关旧城微改造典范，骑楼老街与文创小店共生，李小龙祖居感受西关风情。",tags:["西关","文创"]},
+                    {name:"越秀公园",desc:"广州最大综合性公园，五羊石像为羊城象征，镇海楼述说千年古城历史。",tags:["公园","历史"]}
+                ]
+            },
+            "深圳":{city:"深圳",province:"广东",alias:["鹏城"],bbox:[22.45,113.75,22.75,114.40],
+                food:[
+                    {name:"光明乳鸽",desc:"光明招待所招牌菜，皮脆肉嫩汁多，深圳最具代表性的本土美食之一。",tags:["粤菜","招牌"],cuisine:"粤菜"},
+                    {name:"椰子鸡火锅",desc:"润园四季代表作，椰子水煮鸡，汤清甜而不腻，深圳特色火锅。",tags:["火锅","清甜"],cuisine:"火锅"},
+                    {name:"顺德公猪肚鸡",desc:"胡椒味浓郁的猪肚鸡汤，暖胃鲜香，深圳冬日最受欢迎的汤锅。",tags:["汤锅","暖胃"],cuisine:"粤菜"},
+                    {name:"胜记酒家",desc:"开业30余年的老字号粤式茶楼，黑松露素鹅、蒸凤爪等点心现做现蒸。",tags:["粤式","早茶"],cuisine:"粤菜"},
+                    {name:"沙井蚝",desc:"深圳本地特产生蚝，肉质肥美鲜甜，炭烤或清蒸皆宜。",tags:["海鲜","特产"],cuisine:"海鲜"}
+                ],
+                attractions:[
+                    {name:"世界之窗",desc:"5A景区，以微缩世界著名景观为主题的文化公园，深圳标志性景点。",tags:["主题公园","5A"]},
+                    {name:"大梅沙海滨公园",desc:"位于大鹏湾畔的金色沙滩，免费开放，深圳最受欢迎的海滨度假地。",tags:["海滩","免费"]},
+                    {name:"莲花山公园",desc:"福田区城市绿肺，山顶有邓小平铜像，登顶可俯瞰深圳中心区全景。",tags:["公园","免费"]},
+                    {name:"梧桐山",desc:"深圳最高峰海拔943.7米，登山步道沿途绿意盎然，俯瞰城市与海景。",tags:["登山","自然"]},
+                    {name:"锦绣中华民俗村",desc:"浓缩中国各地名胜古迹和民俗文化的主题景区，含少数民族表演。",tags:["文化","主题公园"]}
+                ]
+            },
+            "北京":{city:"北京",province:"北京",alias:["京城","帝都"],bbox:[39.75,116.20,40.05,116.55],
+                food:[
+                    {name:"全聚德烤鸭",desc:"百年老字号，烤鸭外皮酥脆、肉质鲜嫩，片鸭蘸甜面酱卷薄饼，京味代表之作。",tags:["老字号","烤鸭"],cuisine:"京菜"},
+                    {name:"护国寺小吃",desc:"汇聚豆汁儿、焦圈、驴打滚、豌豆黄等老北京传统小吃，一站式尝遍京味。",tags:["小吃","地道"],cuisine:"京菜"},
+                    {name:"方砖厂69号炸酱面",desc:"手擀面配浓郁炸酱和丰富面码，谢霆锋曾打卡，被誉为北京炸酱面天花板。",tags:["炸酱面","胡同"],cuisine:"面食"},
+                    {name:"门框胡同百年卤煮",desc:"大肠、肺头与火烧炖煮，汤底浓郁醇厚，老北京灵魂级别的重口味美食。",tags:["卤煮","市井"],cuisine:"京菜"},
+                    {name:"聚宝源涮羊肉",desc:"牛街老字号，手切鲜羊肉配秘制麻酱蘸料，铜锅炭火尽显老北京涮肉精髓。",tags:["涮肉","清真"],cuisine:"火锅"}
+                ],
+                attractions:[
+                    {name:"故宫博物院",desc:"明清两代皇家宫殿，世界现存最大木质古建筑群，红墙黄瓦尽显皇家气派。",tags:["皇家","古建"]},
+                    {name:"八达岭长城",desc:"明长城精华段，蜿蜒于崇山峻岭间，登高远眺壮阔山河，世界文化遗产。",tags:["长城","雄伟"]},
+                    {name:"天坛公园",desc:"明清皇帝祭天场所，祈年殿蓝瓦金顶为标志，建筑体现天圆地方哲学理念。",tags:["祭天","园林"]},
+                    {name:"颐和园",desc:"清代皇家园林，昆明湖与万寿山相映，长廊彩绘与十七孔桥堪称园林杰作。",tags:["皇家","园林"]},
+                    {name:"南锣鼓巷",desc:"保存完整的元代胡同格局，胡同深处藏创意小店与老字号，京味与现代交融。",tags:["胡同","文艺"]}
+                ]
+            },
+            "上海":{city:"上海",province:"上海",alias:["申城","魔都"],bbox:[30.95,121.30,31.35,121.70],
+                food:[
+                    {name:"兰心餐厅",desc:"藏身弄堂的本帮小馆，油爆河虾壳脆肉嫩，甜咸酱汁迸发，浓缩老上海味道。",tags:["本帮菜","弄堂"],cuisine:"本帮菜"},
+                    {name:"瑞福园联谊餐室",desc:"老牌本帮菜代表，响油鳝糊、草头圈子做得地道，被誉为上海滩本帮菜天花板。",tags:["本帮菜","老牌"],cuisine:"本帮菜"},
+                    {name:"南翔馒头店",desc:"始于1900年的老字号，南翔小笼皮薄馅鲜、汤汁丰盈，上海小笼包代名词。",tags:["小笼","老字号"],cuisine:"面食"},
+                    {name:"光明邨大酒家",desc:"淮海路排队王，鲜肉月饼外酥内鲜、酱鸭浓油赤酱，老上海人的心头好。",tags:["熟食","排队"],cuisine:"本帮菜"},
+                    {name:"圆苑餐厅",desc:"创新本帮菜代表，冰沙红酒鹅肝绵密惊艳，松露脆皮鸭中西融合别具一格。",tags:["创新","本帮"],cuisine:"本帮菜"}
+                ],
+                attractions:[
+                    {name:"外滩",desc:"黄浦江畔万国建筑博览群，对望陆家嘴天际线，夜幕降临华灯璀璨浪漫非凡。",tags:["夜景","建筑"]},
+                    {name:"东方明珠塔",desc:"468米地标建筑，球体观景台俯瞰浦江两岸，悬空玻璃廊体验云端漫步。",tags:["地标","观景"]},
+                    {name:"豫园",desc:"明代江南古典园林，九曲桥湖心亭清幽雅致，城隍庙小吃云集烟火气十足。",tags:["园林","古典"]},
+                    {name:"上海迪士尼乐园",desc:"中国大陆首座迪士尼，奇幻童话城堡与沉浸式主题园区，亲子家庭首选。",tags:["乐园","亲子"]},
+                    {name:"田子坊",desc:"石库门里弄改造的创意街区，艺术工作室与咖啡馆交错，老上海与新潮碰撞。",tags:["里弄","文艺"]}
+                ]
+            },
+            "成都":{city:"成都",province:"四川",alias:["蓉城","锦城"],bbox:[30.55,103.90,30.80,104.20],
+                food:[
+                    {name:"陈麻婆豆腐",desc:"麻婆豆腐发源地老店，麻辣烫香鲜嫩酥七味一体，川菜经典代表。",tags:["川菜","非遗"],cuisine:"川菜"},
+                    {name:"夫妻肺片",desc:"牛杂片薄如纸，淋秘制红油，麻辣鲜香，天府名菜冷盘巅峰之作。",tags:["冷盘","麻辣"],cuisine:"川菜"},
+                    {name:"龙抄手",desc:"70余年历史成都名小吃，皮薄如纸的抄手搭配红油或清汤，中国金牌小吃。",tags:["小吃","传统"],cuisine:"面食"},
+                    {name:"钟水饺",desc:"光绪年间创立，皮薄馅嫩，特制红油甜辣风味独特，非遗技艺传承。",tags:["小吃","甜辣"],cuisine:"面食"},
+                    {name:"盘飧市回锅肉",desc:"老字号限量供应，二刀肉爆炒出灯盏窝造型，咸香微辣，川菜第一金牌菜。",tags:["川菜","老字号"],cuisine:"川菜"}
+                ],
+                attractions:[
+                    {name:"武侯祠",desc:"中国唯一君臣合祀祠庙，三国文化圣地，紧邻锦里古街。",tags:["三国","历史"]},
+                    {name:"宽窄巷子",desc:"清代古街与现代文艺混搭，由宽巷子、窄巷子、井巷子组成，成都文化地标。",tags:["古街","文化"]},
+                    {name:"大熊猫繁育研究基地",desc:"世界最大大熊猫人工繁育基地，可近距离观赏各年龄段大熊猫。",tags:["熊猫","亲子"]},
+                    {name:"杜甫草堂",desc:"唐代诗人杜甫流寓成都故居，园林清幽，文学圣地与古典园林的完美结合。",tags:["文学","园林"]},
+                    {name:"金沙遗址博物馆",desc:"展示古蜀文明的重要考古遗址，太阳神鸟金饰为镇馆之宝。",tags:["考古","古蜀"]}
+                ]
+            },
+            "西安":{city:"西安",province:"陕西",alias:["长安","镐京"],bbox:[34.20,108.85,34.35,109.05],
+                food:[
+                    {name:"肉夹馍",desc:"子午路张记老字号，白吉馍酥脆掉渣夹肥瘦相间腊汁肉，中式汉堡之称。",tags:["小吃","老字号"],cuisine:"面食"},
+                    {name:"羊肉泡馍",desc:"同盛祥老字号，亲手掰馍配熬制七八小时的浓郁羊汤，肉烂汤浓。",tags:["面食","浓郁"],cuisine:"面食"},
+                    {name:"Biangbiang面",desc:"宽如裤带的手扯面条，浇油泼辣子滋啦作响，配肉臊与西红柿鸡蛋。",tags:["面食","豪迈"],cuisine:"面食"},
+                    {name:"凉皮",desc:"秦镇米皮爽滑筋道，配麻酱或红油，三秦套餐凉皮肉夹馍冰峰的经典搭配。",tags:["小吃","酸辣"],cuisine:"面食"},
+                    {name:"葫芦头泡馍",desc:"春发生老店招牌，猪大肠与浓郁骨汤完美结合，肥而不腻，汤鲜带椒麻。",tags:["泡馍","老字号"],cuisine:"面食"}
+                ],
+                attractions:[
+                    {name:"秦始皇兵马俑博物馆",desc:"世界第八大奇迹，秦始皇陵陪葬坑，数千件陶俑军阵震撼人心。",tags:["世界遗产","5A"]},
+                    {name:"大雁塔",desc:"玄奘法师为保存经卷而建，西安地标，北广场有亚洲最大音乐喷泉。",tags:["唐代","地标"]},
+                    {name:"西安城墙",desc:"中国现存最完整的古代城垣，可骑行环城一周，俯瞰古都全貌。",tags:["古城","骑行"]},
+                    {name:"大唐芙蓉园",desc:"在唐代芙蓉园遗址上建造的皇家园林文化景区，夜景灯光绚丽。",tags:["唐代","园林"]},
+                    {name:"回民街",desc:"西安最著名的美食街区，汇聚各类西北小吃，感受浓郁的市井烟火气。",tags:["美食街","市井"]}
+                ]
+            },
+            "杭州":{city:"杭州",province:"浙江",alias:["临安","钱塘"],bbox:[30.15,120.05,30.35,120.25],
+                food:[
+                    {name:"西湖醋鱼",desc:"楼外楼百年名店招牌，鱼肉鲜嫩无土腥，酸甜酱汁浓稠挂汁，杭帮菜代表。",tags:["杭帮菜","酸甜"],cuisine:"杭帮菜"},
+                    {name:"东坡肉",desc:"知味观经典名菜，色泽红亮入口即化，肥而不腻，甜咸平衡恰到好处。",tags:["杭帮菜","传统"],cuisine:"杭帮菜"},
+                    {name:"虾爆鳝面",desc:"奎元馆160年招牌，黄鳝先炸后焖配河虾仁，汤底醇厚面条劲道入味。",tags:["面食","百年"],cuisine:"面食"},
+                    {name:"知味小笼",desc:"知味观招牌点心，皮薄透光褶子工整，咬开汁水饱满鲜肉鲜甜。",tags:["点心","鲜甜"],cuisine:"面食"},
+                    {name:"葱煎包",desc:"赵宝美三十年老店，皮薄馅足底部金黄酥脆，咬开爆汁葱香浓郁。",tags:["小吃","酥脆"],cuisine:"面食"}
+                ],
+                attractions:[
+                    {name:"西湖",desc:"世界文化遗产，苏堤白堤断桥残雪，三潭印月，杭州城市名片。",tags:["世界遗产","5A"]},
+                    {name:"灵隐寺",desc:"始建于东晋的千年古刹，飞来峰石刻造像精美，杭州香火最旺的寺庙。",tags:["寺庙","千年"]},
+                    {name:"西溪国家湿地公园",desc:"城市中的天然湿地，水网纵横芦苇摇曳，电影非诚勿扰取景地。",tags:["湿地","自然"]},
+                    {name:"千岛湖",desc:"人工湖泊群山环抱，千余座翠岛星罗棋布，水质优良风景如画。",tags:["湖泊","山水"]},
+                    {name:"宋城",desc:"以宋代文化为主题的大型景区，千古情演出重现南宋繁华盛景。",tags:["主题公园","演出"]}
+                ]
+            },
+            "武汉":{city:"武汉",province:"湖北",alias:["江城"],bbox:[30.40,114.20,30.70,114.45],
+                food:[
+                    {name:"热干面",desc:"蔡林记代表，面条筋道弹牙芝麻酱香四溢，武汉过早文化的灵魂美食。",tags:["早餐","芝麻酱"],cuisine:"面食"},
+                    {name:"武昌鱼",desc:"大中华酒楼招牌清蒸武昌鱼，鲜嫩爽滑，毛泽东诗中名鱼。",tags:["楚菜","鲜嫩"],cuisine:"楚菜"},
+                    {name:"三鲜豆皮",desc:"老通城招牌，豆皮香脆馅足，糯米鲜肉蛋皮完美结合，武汉过早经典。",tags:["小吃","香脆"],cuisine:"面食"},
+                    {name:"四季美汤包",desc:"武汉汤包大王，皮薄馅大汤汁鲜美，佐姜丝醋食之风味绝佳。",tags:["汤包","鲜汁"],cuisine:"面食"},
+                    {name:"排骨藕汤",desc:"武汉家常名菜，洪湖莲藕粉糯清甜配排骨慢炖，汤浓味鲜滋补暖胃。",tags:["楚菜","滋补"],cuisine:"楚菜"}
+                ],
+                attractions:[
+                    {name:"黄鹤楼",desc:"江南三大名楼之一，武汉城市地标，登楼俯瞰长江三镇壮丽景色。",tags:["名楼","地标"]},
+                    {name:"东湖风景区",desc:"中国最大城市湖泊，免费开放，绿道骑行赏花观景的休闲胜地。",tags:["湖泊","免费"]},
+                    {name:"湖北省博物馆",desc:"国家一级博物馆，镇馆之宝越王勾践剑与曾侯乙编钟，楚文化精粹。",tags:["博物馆","楚文化"]},
+                    {name:"户部巷",desc:"武汉著名早点美食街，汇聚热干面豆皮汤包等各类汉味小吃。",tags:["美食街","市井"]},
+                    {name:"晴川阁",desc:"与黄鹤楼隔江相望的古建筑，依山傍水，夜游可观长江灯光秀。",tags:["古建","夜景"]}
+                ]
+            },
+            "南京":{city:"南京",province:"江苏",alias:["金陵","石头城"],bbox:[31.95,118.65,32.15,118.90],
+                food:[
+                    {name:"韩复兴盐水鸭",desc:"创于1866年的百年老店，盐水鸭皮白肉嫩、咸香适口，金陵鸭馔之首。",tags:["老字号","盐水鸭"],cuisine:"金陵菜"},
+                    {name:"南京大牌档",desc:"还原民国时期金陵食肆，古法糖芋苗、烤鸭包等地道金陵小吃一应俱全。",tags:["金陵菜","氛围"],cuisine:"金陵菜"},
+                    {name:"李记清真馆",desc:"打钉巷老字号，牛肉锅贴金黄酥脆、汁水丰盈，配一碗牛肉馄饨堪称绝配。",tags:["锅贴","清真"],cuisine:"面食"},
+                    {name:"芳婆糕团店",desc:"王府大街排队王，乌饭包油条配糖芋苗是南京人的早餐标配，软糯香甜。",tags:["早餐","小吃"],cuisine:"面食"},
+                    {name:"刘长兴面馆",desc:"百年老店，皮肚面汤鲜料足，小笼包皮薄馅大，老南京人从小吃到大的味道。",tags:["面馆","老字号"],cuisine:"面食"}
+                ],
+                attractions:[
+                    {name:"中山陵",desc:"孙中山先生陵寝，依紫金山而建，392级台阶象征革命精神，气势磅礴庄严。",tags:["陵寝","庄严"]},
+                    {name:"夫子庙秦淮河",desc:"十里秦淮桨声灯影，夫子庙学宫书香，江南贡院见证科举文化，夜游最妙。",tags:["秦淮","灯影"]},
+                    {name:"明孝陵",desc:"明太祖朱元璋陵墓，神道石象路秋色绝美，世界文化遗产，明清陵寝典范。",tags:["皇陵","古韵"]},
+                    {name:"南京博物院",desc:"中国三大博物馆之一，馆藏文物丰富，民国馆沉浸式街区穿越百年金陵旧梦。",tags:["博物","文化"]},
+                    {name:"玄武湖公园",desc:"六朝皇家园林湖泊，五洲烟柳环湖步道，可远眺紫金山与明城墙，城中绿肺。",tags:["湖泊","休闲"]}
+                ]
+            },
+            "重庆":{city:"重庆",province:"重庆",alias:["山城","雾都"],bbox:[29.40,106.40,29.75,106.70],
+                food:[
+                    {name:"珮姐老火锅",desc:"重庆火锅代表品牌，牛油锅底麻辣醇厚，毛肚鸭肠七上八下，越煮越入味。",tags:["火锅","麻辣"],cuisine:"火锅"},
+                    {name:"花市豌杂面",desc:"重庆小面名店，豌杂面豌豆软糯、杂酱咸香，麻辣鲜香一碗唤醒山城早晨。",tags:["小面","早餐"],cuisine:"面食"},
+                    {name:"李子坝梁山鸡",desc:"山城江湖菜代表，药膳红油炖土鸡，芋儿软糯入味，麻辣中带药香回味。",tags:["江湖菜","药膳"],cuisine:"江湖菜"},
+                    {name:"好又来酸辣粉",desc:"解放碑老字号，红薯粉Q弹爽滑，酸辣汤底配肉末花生碎，街头必吃小吃。",tags:["酸辣粉","街头"],cuisine:"面食"},
+                    {name:"南山泉水鸡",desc:"南山上用泉水烹制的土鸡，一鸡三吃——泉水鸡、炒鸡杂、鸡血汤，农家风味。",tags:["农家","一鸡三吃"],cuisine:"江湖菜"}
+                ],
+                attractions:[
+                    {name:"洪崖洞",desc:"悬崖上的吊脚楼群，夜景灯火璀璨如千与千寻世界，千厮门大桥上取景最佳。",tags:["夜景","奇幻"]},
+                    {name:"磁器口古镇",desc:"千年古镇依嘉陵江而建，石板路蜿蜒，陈麻花飘香，宝轮寺钟声悠远。",tags:["古镇","江畔"]},
+                    {name:"解放碑",desc:"重庆城市地标与抗战胜利纪功碑，CBD核心商圈，感受山城繁华与历史交织。",tags:["地标","商圈"]},
+                    {name:"长江索道",desc:"万里长江第一条空中走廊，飞渡两岸体验山城立体交通，俯瞰江景绝佳。",tags:["索道","江景"]},
+                    {name:"武隆天生三桥",desc:"世界自然遗产，三座天然石桥气势磅礴，《变形金刚4》取景地，鬼斧神工。",tags:["自然","喀斯特"]}
+                ]
+            },
+            "昆明":{city:"昆明",province:"云南",alias:["春城"],bbox:[24.90,102.60,25.10,102.80],
+                food:[
+                    {name:"建新园过桥米线",desc:"始创于1906年的百年老字号，汤底用老母鸡、火腿慢熬12小时，配料18种。",tags:["过桥米线","百年"],cuisine:"滇菜"},
+                    {name:"福照楼汽锅鸡",desc:"近百年老字号，建水紫陶汽锅单锅蒸制乌骨鸡，不加一滴水，汤清味鲜。",tags:["汽锅鸡","滇味"],cuisine:"滇菜"},
+                    {name:"端仕小锅米线",desc:"30年老店，铜锅现煮小锅米线，骨汤浓白，配酸腌菜、鲜肉末、韭菜。",tags:["小锅米线","市井"],cuisine:"面食"},
+                    {name:"嘉华鲜花饼",desc:"昆明家喻户晓的特色糕点，外皮层层酥脆，内馅选用新鲜食用玫瑰花瓣。",tags:["鲜花饼","伴手礼"],cuisine:"甜品"},
+                    {name:"新迎传统豆花米线",desc:"20年老店，滑嫩豆花搭配劲道米线，淋秘制肉酱、甜酱油、辣椒油。",tags:["豆花米线","小吃"],cuisine:"面食"}
+                ],
+                attractions:[
+                    {name:"滇池",desc:"云南最大淡水湖，昆明标志性景点，环湖步道适合散步骑行，冬季可喂海鸥。",tags:["高原湖泊","观鸥"]},
+                    {name:"石林风景区",desc:"世界自然遗产，被誉为天下第一奇观，拥有独特亚热带喀斯特地貌。",tags:["喀斯特","世界遗产"]},
+                    {name:"云南民族村",desc:"集中展示云南25个少数民族的自然村落式民居建筑，可欣赏各民族歌舞。",tags:["民族文化","村落"]},
+                    {name:"翠湖",desc:"以翠堤春晓闻名，被誉为镶嵌在昆明城里的绿宝石，环境清幽。",tags:["城市公园","观鸥"]},
+                    {name:"金马碧鸡坊",desc:"历史悠久的商业街区，保留古老建筑风格和浓厚民族特色，传统与现代交融。",tags:["历史地标","街区"]}
+                ]
+            },
+            "乌鲁木齐":{city:"乌鲁木齐",province:"新疆",alias:["乌市"],bbox:[43.75,87.45,43.95,87.70],
+                food:[
+                    {name:"楼兰秘烤",desc:"连续六年上榜大众点评必吃榜，楼兰古城风格装修，小烤肉鲜嫩肥瘦相间。",tags:["新疆烧烤","必吃榜"],cuisine:"烧烤"},
+                    {name:"血站大盘鸡",desc:"乌鲁木齐老字号，土鸡配土豆炖煮，酱汁浓郁，皮带面吸满汤汁，分量大。",tags:["大盘鸡","老字号"],cuisine:"新疆菜"},
+                    {name:"努日曼无花果抓饭",desc:"上榜必吃榜的特色抓饭快餐，以无花果入饭，羊肉软烂，胡萝卜清甜。",tags:["手抓饭","必吃榜"],cuisine:"新疆菜"},
+                    {name:"阿布拉的馕",desc:"乌鲁木齐知名馕铺，馕坑现烤，外酥内韧，芝麻馕香气扑鼻，新疆主食代表。",tags:["烤馕","新疆主食"],cuisine:"面食"},
+                    {name:"石榴红了·疆滋疆味",desc:"金奖鸽捞面为招牌，鸽肉鲜嫩面条劲道，酥皮烤羊腿肥瘦不腻。",tags:["新疆菜","异域风情"],cuisine:"新疆菜"}
+                ],
+                attractions:[
+                    {name:"新疆国际大巴扎",desc:"集宗教文化、建筑艺术、民族商贸于一体，伊斯兰风格建筑，新疆之窗。",tags:["民族风情","丝路"]},
+                    {name:"天山大峡谷",desc:"以奇松、怪石、云海闻名，峡谷蜿蜒逶迤，两侧岩壁如刀削斧劈。",tags:["峡谷","自然"]},
+                    {name:"新疆维吾尔自治区博物馆",desc:"新疆最大综合性博物馆，干尸展厅为最大特色，含楼兰古尸等国宝。",tags:["历史文物","博物馆"]},
+                    {name:"红山公园",desc:"地处城市中心的综合性山体公园，登红山之巅可俯瞰乌鲁木齐全城风光。",tags:["城市地标","登高"]},
+                    {name:"水磨沟",desc:"地震断裂层形成的峡谷，大小涌泉积流成溪，草木茂盛，誉为小九寨。",tags:["温泉峡谷","江南风光"]}
+                ]
+            },
+            "厦门":{city:"厦门",province:"福建",alias:["鹭岛"],bbox:[24.40,118.05,24.55,118.20],
+                food:[
+                    {name:"沙茶面",desc:"厦门最地道的早餐，浓郁沙茶汤底配大肠、鱿鱼、虾仁，乌糖沙茶面排长队。",tags:["早餐","沙茶"],cuisine:"闽南菜"},
+                    {name:"姜母鸭",desc:"砂锅慢炖麻鸭配老姜母，姜香入骨肉酥烂，灌顶姜母鸭冬天必吃。",tags:["药膳","闽南"],cuisine:"闽南菜"},
+                    {name:"土笋冻",desc:"厦门特色冷盘，星虫熬制胶原蛋白凝冻，蘸芥末酱油，Q弹爽滑。",tags:["小吃","特色"],cuisine:"闽南菜"},
+                    {name:"海蛎煎",desc:"闽南经典蚵仔煎，鲜海蛎配地瓜粉煎至金黄，淋甜辣酱，外酥内嫩。",tags:["海鲜","小吃"],cuisine:"闽南菜"},
+                    {name:"花生汤",desc:"黄则和百年老店，花生仁酥烂不碎汤浓甜润，配油条是厦门人早餐标配。",tags:["甜品","百年"],cuisine:"甜品"}
+                ],
+                attractions:[
+                    {name:"鼓浪屿",desc:"世界文化遗产，万国建筑博览与琴岛风情交融，小巷中钢琴声悠扬。",tags:["世界遗产","文艺"]},
+                    {name:"南普陀寺",desc:"闽南佛教胜地，千年古刹依五老峰而建，素饼与素菜闻名遐迩。",tags:["寺庙","千年"]},
+                    {name:"环岛路",desc:"沿海而建的绝美骑行路线，一侧碧海一侧椰林，傍晚落霞最浪漫。",tags:["骑行","海岸"]},
+                    {name:"曾厝垵",desc:"文艺渔村改造的美食文创聚落，小吃店与手作铺密布，烟火气十足。",tags:["文创","美食"]},
+                    {name:"厦门大学",desc:"中国最美大学之一，芙蓉湖畔嘉庚建筑中西合璧，芙蓉隧道涂鸦墙网红打卡。",tags:["校园","建筑"]}
+                ]
+            },
+            "长沙":{city:"长沙",province:"湖南",alias:["星城"],bbox:[28.10,112.90,28.30,113.05],
+                food:[
+                    {name:"文和友龙虾馆",desc:"海信广场超级文和友，复古80年代长沙街景，口味虾麻辣鲜香震撼味蕾。",tags:["小龙虾","网红"],cuisine:"湘菜"},
+                    {name:"黑色经典臭豆腐",desc:"长沙臭豆腐代名词，外脆内嫩灌秘制辣椒蒜蓉汁，一口爆汁香气扑鼻。",tags:["臭豆腐","街头"],cuisine:"小吃"},
+                    {name:"费大厨辣椒炒肉",desc:"湘菜头牌辣椒炒肉专门店，螺丝椒配土猪肉大火爆炒，鲜辣过瘾。",tags:["湘菜","爆炒"],cuisine:"湘菜"},
+                    {name:"茶颜悦色",desc:"长沙本土新式茶饮霸主，幽兰拿铁奶油碧根果碎与茶底完美融合。",tags:["茶饮","本土"],cuisine:"饮品"},
+                    {name:"向群锅饺",desc:"百年老字号，锅贴底煎金黄焦脆、肉馅鲜甜多汁，长沙人从小吃到大。",tags:["锅贴","老字号"],cuisine:"面食"}
+                ],
+                attractions:[
+                    {name:"橘子洲",desc:"湘江中流名洲，毛泽东青年艺术雕塑矗立洲头，烟花季璀璨夺目。",tags:["湘江","地标"]},
+                    {name:"岳麓山",desc:"南岳七十二峰之尾，岳麓书院千年文脉，爱晚亭秋赏红叶如画。",tags:["书院","登高"]},
+                    {name:"湖南省博物馆",desc:"镇馆之宝马王堆汉墓辛追夫人与素纱襌衣，千年不腐世界奇迹。",tags:["博物馆","西汉"]},
+                    {name:"太平老街",desc:"长沙最古老的商业街，贾谊故居旁尝臭豆腐糖油粑粑，古今交错。",tags:["古街","美食"]},
+                    {name:"坡子街",desc:"长沙美食地标，火宫殿总店汇聚臭豆腐糖油粑粑龙脂猪血，湘味天堂。",tags:["美食街","老字号"]}
+                ]
+            },
+            "苏州":{city:"苏州",province:"江苏",alias:["姑苏"],bbox:[31.20,120.55,31.40,120.70],
+                food:[
+                    {name:"松鹤楼松鼠桂鱼",desc:"始创于1737年，松鼠桂鱼外酥内嫩酸甜适口，苏帮菜镇店名菜。",tags:["苏帮菜","老字号"],cuisine:"苏帮菜"},
+                    {name:"哑巴生煎",desc:"临顿路排队王，生煎包皮薄底脆汤汁鲜甜，咬开小心烫嘴。",tags:["生煎","排队"],cuisine:"面食"},
+                    {name:"同得兴面馆",desc:"苏式面代表，枫镇大肉面白汤浓郁肉酥烂，三套鸭面鲜到眉毛掉。",tags:["苏式面","百年"],cuisine:"面食"},
+                    {name:"绿杨馄饨",desc:"苏州老字号，鸡汤馄饨皮薄馅鲜，蟹粉馄饨季节限定珍贵美味。",tags:["馄饨","老字号"],cuisine:"面食"},
+                    {name:"得月楼",desc:"观前街百年苏菜馆，樱桃肉色泽红亮酥烂入味，蟹粉豆腐鲜香满溢。",tags:["苏帮菜","百年"],cuisine:"苏帮菜"}
+                ],
+                attractions:[
+                    {name:"拙政园",desc:"中国四大名园之首，明代园林代表，亭台楼阁借景远山，移步换景。",tags:["世界遗产","园林"]},
+                    {name:"虎丘",desc:"吴中第一名胜，斜塔云岩寺塔千年不倒，剑池下传藏吴王阖闾墓。",tags:["斜塔","历史"]},
+                    {name:"留园",desc:"中国四大名园，空间处理精妙绝伦，冠云峰为太湖石极品。",tags:["园林","太湖石"]},
+                    {name:"平江路",desc:"宋代街坊格局保存完整，小桥流水与昆曲评弹声声入耳，苏式慢生活。",tags:["古街","水巷"]},
+                    {name:"周庄",desc:"中国第一水乡，双桥倒影入画，沈厅张厅述说江南巨贾往事。",tags:["水乡","古镇"]}
+                ]
+            },
+            "青岛":{city:"青岛",province:"山东",alias:["琴岛"],bbox:[35.95,120.25,36.15,120.50],
+                food:[
+                    {name:"船歌鱼水饺",desc:"墨鱼、黄花鱼水饺皮薄馅鲜，青岛海鲜水饺天花板，必吃榜常客。",tags:["水饺","海鲜"],cuisine:"鲁菜"},
+                    {name:"啤酒街扎啤配蛤蜊",desc:"登州路啤酒街新鲜原浆扎啤配辣炒蛤蜊，青岛最经典的夏夜组合。",tags:["啤酒","海鲜"],cuisine:"海鲜"},
+                    {name:"九龙餐厅",desc:"大沽路老字号苍蝇馆子，香辣鱿鱼条与辣炒蛤蜊征服味蕾，性价比极高。",tags:["苍蝇馆","实惠"],cuisine:"海鲜"},
+                    {name:"海平馄饨",desc:"三十年老店，蛋黄馄饨与皮蛋馄饨为特色，汤鲜馅足暖胃神器。",tags:["馄饨","老店"],cuisine:"面食"},
+                    {name:"春和楼",desc:"百年鲁菜老字号，香酥鸡外酥内嫩，葱烧海参浓油赤酱经典鲁味。",tags:["鲁菜","老字号"],cuisine:"鲁菜"}
+                ],
+                attractions:[
+                    {name:"栈桥",desc:"青岛城市地标，回澜阁矗立海中，冬日海鸥翔集壮观至极。",tags:["地标","海景"]},
+                    {name:"八大关",desc:"万国建筑博览区，花石楼与公主楼风格各异，秋日红叶铺满小路。",tags:["建筑","红叶"]},
+                    {name:"崂山",desc:"海上名山第一，太清宫千年道观，山海相连道教圣地。",tags:["道教","山海"]},
+                    {name:"五四广场",desc:"红色风帆雕塑五月的风为标志，海滨木栈道漫步赏城市天际线。",tags:["广场","海岸"]},
+                    {name:"金沙滩",desc:"亚洲第一滩，细沙金色海水清澈，啤酒节主会场夏日狂欢。",tags:["海滩","细沙"]}
+                ]
+            },
+            "三亚":{city:"三亚",province:"海南",alias:["鹿城"],bbox:[18.15,109.35,18.35,109.65],
+                food:[
+                    {name:"第一市场海鲜",desc:"自己买海鲜找店加工的超值体验，和乐蟹膏满黄香、基围虾白灼鲜甜。",tags:["海鲜","加工"],cuisine:"海鲜"},
+                    {name:"椰子鸡",desc:"新鲜椰子水煮文昌鸡，汤清甜鸡肉嫩，蘸秘制酱料，三亚养生首选。",tags:["椰子鸡","养生"],cuisine:"海南菜"},
+                    {name:"文昌鸡",desc:"海南四大名菜之首，白切文昌鸡皮滑肉嫩配蒜蓉酱，原汁原味。",tags:["文昌鸡","名菜"],cuisine:"海南菜"},
+                    {name:"抱罗粉",desc:"海南传统粉类，粗粉爽滑配牛骨汤、酸豆角、花生，酸辣鲜香。",tags:["粉面","早餐"],cuisine:"面食"},
+                    {name:"清补凉",desc:"椰奶冰沙配红豆绿豆薏米芋圆等十余种配料，三亚消暑必备甜品。",tags:["甜品","消暑"],cuisine:"甜品"}
+                ],
+                attractions:[
+                    {name:"亚龙湾",desc:"天下第一湾，7公里银白沙滩碧海蓝天，度假酒店群沿湾而建。",tags:["海湾","度假"]},
+                    {name:"蜈支洲岛",desc:"中国的马尔代夫，海水能见度极高，潜水观赏珊瑚与热带鱼。",tags:["海岛","潜水"]},
+                    {name:"天涯海角",desc:"刻有天涯海角的巨石矗立海边，浪漫地标与爱情圣地。",tags:["地标","浪漫"]},
+                    {name:"南山文化旅游区",desc:"108米海上观音圣像庄严壮丽，南山寺佛光普照心灵净土。",tags:["佛教","观音"]},
+                    {name:"呀诺达雨林",desc:"热带雨林生态景区，丛林穿越与瀑布溪流，亲近自然最佳选择。",tags:["雨林","生态"]}
+                ]
+            },
+            "大理":{city:"大理",province:"云南",alias:["风城"],bbox:[25.55,100.15,25.65,100.35],
+                food:[
+                    {name:"喜洲粑粑",desc:"喜洲古镇名小吃，甜咸两味外酥内软，炭火烤制麦香扑鼻。",tags:["小吃","炭烤"],cuisine:"滇菜"},
+                    {name:"白族土八碗",desc:"白族传统宴席菜，红肉炖、酥肉、粉蒸等八碗尽显白族饮食文化。",tags:["白族","宴席"],cuisine:"滇菜"},
+                    {name:"巍山耙肉饵丝",desc:"大耙肉炖至酥烂配滑嫩饵丝，汤浓味鲜，巍山名吃的代表。",tags:["饵丝","市井"],cuisine:"面食"},
+                    {name:"凉鸡米线",desc:"大理古城随处可见的招牌，酸辣爽口的米线配手撕鸡肉，开胃解暑。",tags:["米线","酸辣"],cuisine:"面食"},
+                    {name:"乳扇",desc:"白族特色乳制品，可炸可烤可生吃，蘸玫瑰糖香甜酥脆。",tags:["乳制品","白族"],cuisine:"甜品"}
+                ],
+                attractions:[
+                    {name:"洱海",desc:"风花雪月之洱海月，环湖骑行130公里绝美风光，双廊看海发呆。",tags:["湖泊","骑行"]},
+                    {name:"大理古城",desc:"600年古城，南城门五华楼洋人街，文艺小店与白族扎染交织。",tags:["古城","文艺"]},
+                    {name:"苍山",desc:"十九峰十八溪，乘索道登顶览洱海全景，洗马潭高山湖泊如镜。",tags:["山脉","索道"]},
+                    {name:"崇圣寺三塔",desc:"大理国皇家寺院遗址，三塔倒影入池千年不倒，大理地标。",tags:["佛塔","千年"]},
+                    {name:"双廊",desc:"洱海东岸的艺术小镇，杨丽萍太阳宫坐落于此，面朝洱海春暖花开。",tags:["艺术","洱海"]}
+                ]
+            },
+            "丽江":{city:"丽江",province:"云南",alias:["高原姑苏"],bbox:[26.80,100.15,26.95,100.35],
+                food:[
+                    {name:"腊排骨火锅",desc:"丽江招牌美食，腌制风干的腊排骨炖锅汤鲜味浓，配当地蔬菜涮食。",tags:["火锅","特色"],cuisine:"滇菜"},
+                    {name:"黑山羊火锅",desc:"带皮黑山羊肉火锅，肉质紧实无膻味，配薄荷叶增添清香。",tags:["火锅","山珍"],cuisine:"滇菜"},
+                    {name:"鸡豆凉粉",desc:"丽江特产鸡豆磨制，煎或凉拌皆宜，口感Q弹蘸辣椒醋汁酸辣开胃。",tags:["小吃","特产"],cuisine:"面食"},
+                    {name:"纳西烤鱼",desc:"鲜鱼腌制后炭火烤制，外焦内嫩配薄荷辣椒，纳西族传统美食。",tags:["烤鱼","纳西"],cuisine:"滇菜"},
+                    {name:"丽江粑粑",desc:"纳西族传统面食，酥油与面层层叠加煎制，外酥内软配酥油茶。",tags:["面食","纳西"],cuisine:"面食"}
+                ],
+                attractions:[
+                    {name:"丽江古城",desc:"世界文化遗产，纳西族与多民族聚居，四方街古韵流水，夜色阑珊。",tags:["世界遗产","古城"]},
+                    {name:"玉龙雪山",desc:"纳西族神山，海拔5596米，蓝月谷碧水如玉，甘海子草甸辽阔。",tags:["雪山","冰川"]},
+                    {name:"束河古镇",desc:"茶马古道重镇，比大研古镇更安静，九鼎龙潭水清见底。",tags:["古镇","茶马古道"]},
+                    {name:"泸沽湖",desc:"女儿国摩梭人的家园，猪槽船划入碧蓝湖心，走婚桥日落绝美。",tags:["湖泊","摩梭"]},
+                    {name:"虎跳峡",desc:"世界最深峡谷之一，金沙江奔腾咆哮，上虎跳中虎跳徒步惊心动魄。",tags:["峡谷","徒步"]}
+                ]
+            },
+            "拉萨":{city:"拉萨",province:"西藏",alias:["日光城"],bbox:[29.55,91.00,29.75,91.20],
+                food:[
+                    {name:"甜茶馆",desc:"光明港琼甜茶馆是拉萨人的社交场，甜茶一壶几元坐一下午，糌粑藏面配。",tags:["甜茶","社交"],cuisine:"藏餐"},
+                    {name:"藏面",desc:"碱面配牦牛肉汤，面条略硬汤浓鲜香，拉萨早餐标配。",tags:["面食","早餐"],cuisine:"藏餐"},
+                    {name:"玛吉阿米",desc:"八廓街网红藏餐，酸奶蛋糕与藏式烤肉闻名，传说中六世达赖情人的店铺。",tags:["藏餐","网红"],cuisine:"藏餐"},
+                    {name:"风干牦牛肉",desc:"高原传统风干肉，口感紧实有嚼劲，佐青稞酒最佳，可做伴手礼。",tags:["牦牛","特产"],cuisine:"藏餐"},
+                    {name:"酥油茶",desc:"酥油与砖茶打制而成，咸香暖身抗高反，藏民每日必饮。",tags:["饮品","传统"],cuisine:"藏餐"}
+                ],
+                attractions:[
+                    {name:"布达拉宫",desc:"世界海拔最高宫殿，藏传佛教圣地，白宫红宫金顶在阳光下璀璨夺目。",tags:["宫殿","世界遗产"]},
+                    {name:"大昭寺",desc:"藏传佛教最神圣寺庙，释迦牟尼12岁等身像供奉于此，转经人流如织。",tags:["寺庙","朝圣"]},
+                    {name:"八廓街",desc:"环绕大昭寺的转经道与商业街，唐卡、藏香、手工艺品琳琅满目。",tags:["转经","购物"]},
+                    {name:"纳木错",desc:"西藏三大圣湖之一，海拔4718米，湖天一色蔚蓝震撼灵魂。",tags:["圣湖","高海拔"]},
+                    {name:"色拉寺",desc:"辩经是色拉寺最大看点，僧侣击掌辩论佛理生动热烈，周一至周五下午。",tags:["辩经","寺庙"]}
+                ]
+            },
+            "哈尔滨":{city:"哈尔滨",province:"黑龙江",alias:["冰城"],bbox:[45.65,126.55,45.85,126.80],
+                food:[
+                    {name:"马迭尔冰棍",desc:"中央大街百年名品，奶香浓郁甜而不腻，零下30度啃冰棍是冰城仪式感。",tags:["甜品","百年"],cuisine:"甜品"},
+                    {name:"老昌春饼",desc:"筋饼薄如蝉翼卷熏肉与合菜，蘸酱卷饼一口满足，哈尔滨待客之道。",tags:["春饼","东北"],cuisine:"东北菜"},
+                    {name:"华梅俄式西餐",desc:"中央大街百年俄餐，红菜汤酸甜、罐焖牛肉酥烂，体验哈尔滨异域风情。",tags:["俄餐","百年"],cuisine:"西餐"},
+                    {name:"东方饺子王",desc:"哈尔滨饺子连锁名店，三鲜馅与酸菜馅皮薄馅大，实惠管饱。",tags:["饺子","东北"],cuisine:"面食"},
+                    {name:"锅包肉",desc:"东北第一名菜，里脊肉外酥挂糖醋汁酸甜开胃，老厨家为正宗发源。",tags:["东北菜","酸甜"],cuisine:"东北菜"}
+                ],
+                attractions:[
+                    {name:"冰雪大世界",desc:"世界最大冰雪主题乐园，巨型冰建与冰滑梯在彩灯映照下如梦如幻。",tags:["冰雪","乐园"]},
+                    {name:"圣索菲亚教堂",desc:"拜占庭风格东正教堂，绿色洋葱头穹顶为哈尔滨地标，广场喂鸽子。",tags:["建筑","俄式"]},
+                    {name:"中央大街",desc:"百年欧式建筑步行街，面包石铺路，马迭尔冰棍与秋林红肠一路吃。",tags:["步行街","欧式"]},
+                    {name:"太阳岛",desc:"松花江北岸风景区，雪博会冰雕精美，夏季湿地花海与音乐喷泉。",tags:["公园","湿地"]},
+                    {name:"亚布力滑雪场",desc:"中国最大滑雪场，曾举办亚冬会，专业雪道与初级道满足各级爱好者。",tags:["滑雪","运动"]}
+                ]
+            },
+            "大连":{city:"大连",province:"辽宁",alias:["北方明珠"],bbox:[38.80,121.50,39.00,121.75],
+                food:[
+                    {name:"海鲜大排档",desc:"星海广场附近海鲜排档，鲍鱼扇贝海参现点现做，渤海湾的鲜甜滋味。",tags:["海鲜","大排档"],cuisine:"海鲜"},
+                    {name:"大连焖子",desc:"地瓜淀粉焖子煎至两面焦脆，淋蒜泥酱油与芝麻酱，大连街头小吃之王。",tags:["小吃","街头"],cuisine:"小吃"},
+                    {name:"日式料理",desc:"大连日料店密集，新鲜刺身与寿司品质上乘，东港附近日料一条街。",tags:["日料","海鲜"],cuisine:"日料"},
+                    {name:"咸鱼饼子",desc:"大连传统渔家菜，咸鱼煎至焦香配玉米饼子，粗犷海味十足。",tags:["渔家","传统"],cuisine:"东北菜"},
+                    {name:"铁板鱿鱼",desc:"大连夜市招牌，鱿鱼须在铁板上滋啦作响，刷蒜蓉辣酱鲜辣弹牙。",tags:["夜市","小吃"],cuisine:"小吃"}
+                ],
+                attractions:[
+                    {name:"星海广场",desc:"亚洲最大城市广场，百年城雕与跨海大桥夜景壮丽，海鸥成群飞舞。",tags:["广场","海景"]},
+                    {name:"老虎滩海洋公园",desc:"5A景区，极地馆白鲸表演与珊瑚馆热带鱼，亲子游首选。",tags:["海洋馆","亲子"]},
+                    {name:"滨海路",desc:"40公里沿海公路，木栈道蜿蜒穿行于山海间，徒步骑行绝美。",tags:["海岸","徒步"]},
+                    {name:"发现王国",desc:"大型主题乐园，过山车与漂流等刺激项目，夏季夜场烟花绚烂。",tags:["乐园","刺激"]},
+                    {name:"金石滩",desc:"国家地质公园，6亿年海蚀地貌奇观，恐龙探海与贝多芬头像天然雕塑。",tags:["地质","奇观"]}
+                ]
+            },
+            "天津":{city:"天津",province:"天津",alias:["津门"],bbox:[39.05,117.10,39.20,117.35],
+                food:[
+                    {name:"狗不理包子",desc:"天津三绝之首，薄皮大馅18个褶，传统猪肉包汁鲜味美。",tags:["包子","老字号"],cuisine:"津菜"},
+                    {name:"煎饼果子",desc:"绿豆面薄饼裹油条或薄脆，刷面酱辣酱撒葱花，天津人早餐灵魂。",tags:["早餐","煎饼"],cuisine:"小吃"},
+                    {name:"十八街麻花",desc:"天津三绝之一，桂花夹馅麻花酥脆香甜，可做伴手礼带走。",tags:["麻花","特产"],cuisine:"甜品"},
+                    {name:"耳朵眼炸糕",desc:"天津三绝之一，红豆馅糯米炸糕外酥内糯，甜而不腻。",tags:["炸糕","甜品"],cuisine:"甜品"},
+                    {name:"南市食品街",desc:"集中了天津各类传统小吃，锅巴菜、面茶、驴打滚一站尝遍。",tags:["小吃街","传统"],cuisine:"津菜"}
+                ],
+                attractions:[
+                    {name:"天津之眼",desc:"建在桥上的摩天轮，高120米俯瞰海河两岸，夜幕中旋转灯光璀璨。",tags:["摩天轮","夜景"]},
+                    {name:"五大道",desc:"万国建筑博览区，意风区与小洋楼交错，适合骑行漫步品味历史。",tags:["建筑","欧式"]},
+                    {name:"古文化街",desc:"津门故里，泥人张与杨柳青年画非遗汇聚，天后宫香火绵延。",tags:["文化","非遗"]},
+                    {name:"瓷房子",desc:"数亿古瓷片贴面而成的奇幻建筑，法式洋楼变身中国瓷艺瑰宝。",tags:["奇观","瓷艺"]},
+                    {name:"海河游船",desc:"夜游海河赏两岸灯火，解放桥与狮子林桥历史风韵与现代都市交融。",tags:["游船","夜景"]}
+                ]
+            },
+            "兰州":{city:"兰州",province:"甘肃",alias:["金城"],bbox:[36.00,103.75,36.12,103.92],
+                food:[
+                    {name:"马子禄牛肉面",desc:"兰州牛肉面鼻祖，一清二白三红四绿五黄标准，毛细二细任意选。",tags:["牛肉面","百年"],cuisine:"面食"},
+                    {name:"正宁路夜市",desc:"牛奶鸡蛋醪糟摊前排长队，香甜顺滑暖胃，烤羊肉串烟雾缭绕。",tags:["夜市","小吃"],cuisine:"小吃"},
+                    {name:"手抓羊肉",desc:"临夏手抓名店开到兰州，白条羊排蘸椒盐蒜泥，肉嫩无膻原汁原味。",tags:["羊肉","清真"],cuisine:"清真"},
+                    {name:"灰豆子",desc:"兰州特色甜食，麻色豌豆加红枣慢熬至绵密，甜香软糯冰凉解暑。",tags:["甜品","特色"],cuisine:"甜品"},
+                    {name:"酿皮子",desc:"兰州版凉皮更厚实筋道，淋芥末油辣椒油醋汁，酸辣冲鼻过瘾。",tags:["凉皮","酸辣"],cuisine:"面食"}
+                ],
+                attractions:[
+                    {name:"黄河铁桥",desc:"中山桥百年不倒，黄河第一桥，夜晚灯光映水金碧辉煌。",tags:["铁桥","历史"]},
+                    {name:"白塔山公园",desc:"登顶俯瞰兰州城与黄河蜿蜒全景，白塔为元代遗存。",tags:["登高","古塔"]},
+                    {name:"甘肃省博物馆",desc:"镇馆之宝铜奔马（马踏飞燕），丝绸之路文物精彩纷呈。",tags:["博物馆","丝路"]},
+                    {name:"水车博览园",desc:"再现兰州水车灌溉历史，巨型木制水车缓缓转动，黄河风情浓郁。",tags:["水车","民俗"]},
+                    {name:"兰州老街",desc:"新建成仿古商业街，夜晚灯光秀与美食摊位，感受兰州新夜生活。",tags:["古街","夜游"]}
+                ]
+            }
+        };
+
+        const QUICK_CITIES = ["广州","深圳","北京","上海","成都","西安","杭州","武汉","南京","重庆","长沙","厦门","苏州","青岛","三亚","大理","丽江","拉萨","哈尔滨","昆明"];
+
+        function renderQuickCities() {
+            document.getElementById('quickCities').innerHTML = QUICK_CITIES.map(c =>
+                `<button onclick="quickSearch('${c}')">${c}</button>`
+            ).join('');
+        }
+        function quickSearch(city) { document.getElementById('cityInput').value = city; handleSearch(); }
+
+        function matchCity(input) {
+            const trimmed = input.trim();
+            if (CITY_DATABASE[trimmed]) return CITY_DATABASE[trimmed];
+            for (const key in CITY_DATABASE) {
+                const city = CITY_DATABASE[key];
+                if (city.alias && city.alias.includes(trimmed)) return city;
+            }
+            return null;
+        }
+
+        // ============================================================
+        // 工具函数
+        // ============================================================
+        function fetchWithTimeout(url, timeout) {
+            return Promise.race([
+                fetch(url),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('请求超时')), timeout))
+            ]);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text || '';
+            return div.innerHTML;
+        }
+
+        // ============================================================
+        // 智能跳转：小红书/抖音 APP + 网页版
+        // ============================================================
+        function isMobile() {
+            return /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent);
+        }
+        function isIOS() {
+            return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        }
+        function isAndroid() {
+            return /Android/i.test(navigator.userAgent);
+        }
+        function isWechat() {
+            return /MicroMessenger/i.test(navigator.userAgent);
+        }
+
+        // 微信内：显示全屏遮罩引导用户用浏览器打开
+        function showWechatGuide() {
+            if (document.getElementById('wechat-guide')) return;
+            const guide = document.createElement('div');
+            guide.id = 'wechat-guide';
+            guide.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;';
+            guide.innerHTML = `
+                <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);"></div>
+                <div style="position:relative;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;text-align:center;padding:0 30px;">
+                    <div style="position:absolute;top:12px;right:20px;font-size:15px;color:#fff;display:flex;align-items:center;gap:4px;">
+                        请点这里 <span style="font-size:28px;">👆</span>
+                    </div>
+                    <div style="font-size:56px;margin-bottom:20px;">🦊</div>
+                    <h3 style="font-size:18px;margin-bottom:12px;">微信无法直接跳转APP</h3>
+                    <p style="font-size:14px;line-height:1.8;color:rgba(255,255,255,0.8);margin-bottom:8px;">
+                        请点击右上角 <strong style="font-size:20px;">···</strong>
+                    </p>
+                    <p style="font-size:14px;line-height:1.8;color:rgba(255,255,255,0.8);margin-bottom:24px;">
+                        选择「在浏览器中打开」<br>即可跳转小红书 / 抖音APP
+                    </p>
+                    <button onclick="document.getElementById('wechat-guide').remove()" style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.3);padding:8px 28px;border-radius:20px;font-size:14px;cursor:pointer;">关闭</button>
+                </div>
+            `;
+            document.body.appendChild(guide);
+        }
+
+        // 显示跳转提示
+        function showJumpToast(msg) {
+            const toast = document.getElementById('jumpToast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        function openSearch(platform, keyword) {
+            const encoded = encodeURIComponent(keyword);
+
+            // ============ 电脑端：直接新标签页打开网页搜索 ============
+            if (!isMobile()) {
+                const webUrl = platform === 'xhs'
+                    ? `https://www.xiaohongshu.com/search_result?keyword=${encoded}&source=web_explore_feed`
+                    : `https://www.douyin.com/search/${encoded}`;
+                window.open(webUrl, '_blank', 'noopener');
+                return;
+            }
+
+            // ============ 微信/QQ内：无法拉起APP，显示引导 ============
+            if (isWechat() || /QQ\//i.test(navigator.userAgent)) {
+                showWechatGuide();
+                return;
+            }
+
+            // ============ 手机端浏览器 ============
+            if (platform === 'xhs') {
+                // 小红书：先尝试 Deep Link 拉起APP，2秒后回退到网页
+                if (isIOS()) {
+                    // iOS: 用 Universal Link（装了APP自动拉起，没装打开网页）
+                    const universalLink = `https://www.xiaohongshu.com/search_result?keyword=${encoded}&source=web_explore_feed`;
+                    showJumpToast('正在打开小红书...');
+                    window.location.href = universalLink;
+                    // 如果APP没装，Universal Link 会直接在浏览器打开网页版
+                } else {
+                    // Android: 先尝试 scheme 拉起APP
+                    const appScheme = `xhsdiscover://search/result?keyword=${encoded}`;
+                    const webFallback = `https://www.xiaohongshu.com/search_result?keyword=${encoded}&source=web_explore_feed`;
+                    showJumpToast('正在打开小红书...');
+                    const start = Date.now();
+                    window.location.href = appScheme;
+                    // 如果拉起失败（2秒内页面未隐藏），则跳网页版
+                    setTimeout(() => {
+                        if (Date.now() - start < 2500) {
+                            window.open(webFallback, '_blank', 'noopener');
+                        }
+                    }, 2000);
+                }
+            } else {
+                // 抖音
+                if (isIOS()) {
+                    // iOS: 抖音网页版会自动弹窗拉起APP
+                    const webUrl = `https://www.douyin.com/search/${encoded}`;
+                    showJumpToast('正在打开抖音...');
+                    window.location.href = webUrl;
+                } else {
+                    // Android: 先尝试 scheme，回退到网页
+                    const appScheme = `snssdk1128://search/detail?keyword=${encoded}`;
+                    const webFallback = `https://www.douyin.com/search/${encoded}`;
+                    showJumpToast('正在打开抖音...');
+                    const start = Date.now();
+                    window.location.href = appScheme;
+                    setTimeout(() => {
+                        if (Date.now() - start < 2500) {
+                            window.open(webFallback, '_blank', 'noopener');
+                        }
+                    }, 2000);
+                }
+            }
+        }
+
+        // ============================================================
+        // 天气查询：Open-Meteo API
+        // ============================================================
+        async function geocodeCity(cityName) {
+            const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=zh&format=json`;
+            const geoResp = await fetchWithTimeout(geoUrl, 8000);
+            const geoData = await geoResp.json();
+            return geoData.results && geoData.results.length > 0 ? geoData.results[0] : null;
+        }
+
+        async function fetchWeatherByGeo(geoResult) {
+            const { latitude, longitude, name, admin1, country } = geoResult;
+            const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m&timezone=Asia/Shanghai`;
+            const weatherResp = await fetchWithTimeout(weatherUrl, 8000);
+            const weatherData = await weatherResp.json();
+            const current = weatherData.current;
+            const wmo = WMO_CODES[current.weather_code] || { text: "未知", emoji: "❓" };
+            return {
+                city: name, region: admin1, country: country,
+                temperature: Math.round(current.temperature_2m),
+                apparentTemp: Math.round(current.apparent_temperature),
+                weatherCode: current.weather_code,
+                weatherText: wmo.text, weatherEmoji: wmo.emoji,
+                humidity: current.relative_humidity_2m,
+                windSpeed: current.wind_speed_10m,
+                windDir: windDirection(current.wind_direction_10m)
+            };
+        }
+
+        async function fetchWeather(cityName) {
+            const geoResult = await geocodeCity(cityName);
+            if (geoResult) {
+                try { return await fetchWeatherByGeo(geoResult); }
+                catch (e) { console.warn('主天气请求失败:', e); }
+            }
+            const spot = getScenicSpot(cityName);
+            if (spot) {
+                try {
+                    return await fetchWeatherByGeo({
+                        latitude: spot.lat, longitude: spot.lon,
+                        name: cityName, admin1: spot.region, country: '中国'
+                    });
+                } catch (e) { console.warn('景区天气请求失败:', e); }
+            }
+            const capital = getCapital(cityName);
+            if (capital && capital !== cityName) {
+                const capitalGeo = await geocodeCity(capital);
+                if (capitalGeo) return await fetchWeatherByGeo(capitalGeo);
+            }
+            throw new Error('未找到该城市的地理位置');
+        }
+
+        // ============================================================
+        // 网络爬虫模块：CORS代理 + Wikipedia API + 搜索引擎抓取
+        // ============================================================
+        const CORS_PROXIES = [
+            'https://api.allorigins.win/raw?url=',
+            'https://corsproxy.io/?',
+            'https://api.codetabs.com/v1/proxy?quest='
+        ];
+
+        async function fetchViaProxy(url, timeout) {
+            for (const proxy of CORS_PROXIES) {
+                try {
+                    const fullUrl = proxy + encodeURIComponent(url);
+                    const resp = await fetchWithTimeout(fullUrl, timeout || 10000);
+                    if (!resp.ok) continue;
+                    const text = await resp.text();
+                    if (text && text.length > 200) return text;
+                } catch (e) {
+                    console.warn('CORS代理失败:', proxy, e.message);
+                    continue;
+                }
+            }
+            return null;
+        }
+
+        // 来源1: Wikipedia 中文 API（直接支持 CORS）
+        async function scrapeWikiZh(cityName) {
+            const results = { food: [], attractions: [] };
+            try {
+                const url = `https://zh.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(cityName)}`;
+                const resp = await fetchWithTimeout(url, 6000);
+                if (!resp.ok) return results;
+                const data = await resp.json();
+                const extract = data.extract || '';
+                if (!extract) return results;
+                // 从百科摘要中提取景点和美食关键词
+                const attractionKeywords = ['公园','景区','博物馆','古迹','寺','塔','楼','阁','宫','院','陵','山','湖','河','海','湾','岛','桥','广场','祠','坛','园','殿','堡','城墙','古镇','故居','遗址','碑','观','堂'];
+                const foodKeywords = ['菜','小吃','面','粉','饼','饺','糕','肉','鱼','汤','粥','鸭','鸡','火锅','烤','酿','馄饨','米线','豆花','糍粑','串','卤','酥','茶','酒'];
+                // 提取包含关键词的句子
+                const sentences = extract.split(/[。；！？]/).filter(s => s.trim().length > 4);
+                for (const s of sentences) {
+                    const hasFood = foodKeywords.some(k => s.includes(k));
+                    const hasAttr = attractionKeywords.some(k => s.includes(k));
+                    if (hasFood) {
+                        // 尝试提取具体美食名
+                        const names = s.match(/[\u4e00-\u9fa5]{2,8}(?:菜|面|粉|饼|饺|糕|肉|鱼|汤|粥|鸭|鸡|火锅|烤|酿|馄饨|米线|豆花|糍粑|串|卤|酥|茶|酒)/g);
+                        if (names) {
+                            for (const n of names) {
+                                if (n.length >= 3 && n.length <= 10 && !results.food.some(f => f.name === n)) {
+                                    results.food.push({ name: n, desc: s.trim().substring(0, 80), tags: ['百科'], cuisine: '' });
+                                }
+                            }
+                        }
+                    }
+                    if (hasAttr) {
+                        const names = s.match(/[\u4e00-\u9fa5]{2,10}(?:公园|景区|博物馆|古迹|寺|塔|楼|阁|宫|院|陵|广场|祠|坛|园|殿|堡|城墙|古镇|故居|遗址)/g);
+                        if (names) {
+                            for (const n of names) {
+                                if (n.length >= 3 && n.length <= 12 && !results.attractions.some(a => a.name === n)) {
+                                    results.attractions.push({ name: n, desc: s.trim().substring(0, 80), tags: ['百科'], type: '景点' });
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Wikipedia抓取失败:', e.message);
+            }
+            return results;
+        }
+
+        // 来源2: Bing搜索结果抓取
+        async function scrapeBingSearch(cityName, type) {
+            const results = [];
+            const query = type === 'food' ? `${cityName} 美食推荐 必吃` : `${cityName} 景点推荐 必去`;
+            const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&setlang=zh-Hans`;
+            try {
+                const html = await fetchViaProxy(url, 10000);
+                if (!html) return results;
+                // 解析Bing搜索结果 - 提取标题和摘要
+                const liRegex = /<li class="b_algo"[^>]*>(.*?)<\/li>/gs;
+                const matches = [];
+                let m;
+                while ((m = liRegex.exec(html)) !== null) {
+                    matches.push(m[1]);
+                }
+                // 如果正则没匹配到，用更宽松的方式
+                if (matches.length === 0) {
+                    // 提取所有 <h2> 标题和对应的 <p> 摘要
+                    const h2Regex = /<h2[^>]*>(.*?)<\/h2>/g;
+                    const pRegex = /<p[^>]*>(.*?)<\/p>/g;
+                    const titles = [];
+                    const descs = [];
+                    let hm;
+                    while ((hm = h2Regex.exec(html)) !== null) {
+                        const title = hm[1].replace(/<[^>]+>/g, '').trim();
+                        if (title.length >= 2 && title.length <= 30) titles.push(title);
+                    }
+                    let pm;
+                    while ((pm = pRegex.exec(html)) !== null) {
+                        const desc = pm[1].replace(/<[^>]+>/g, '').trim();
+                        if (desc.length >= 10 && desc.length <= 150) descs.push(desc);
+                    }
+                    for (let i = 0; i < Math.min(titles.length, 8); i++) {
+                        const desc = descs[i] || '';
+                        results.push({ title: titles[i], desc: desc });
+                    }
+                } else {
+                    for (const match of matches) {
+                        const titleMatch = match.match(/<a[^>]*>(.*?)<\/a>/);
+                        const descMatch = match.match(/<p[^>]*>(.*?)<\/p>/);
+                        if (titleMatch) {
+                            const title = titleMatch[1].replace(/<[^>]+>/g, '').trim();
+                            const desc = descMatch ? descMatch[1].replace(/<[^>]+>/g, '').trim() : '';
+                            if (title.length >= 2 && title.length <= 40) {
+                                results.push({ title, desc });
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Bing搜索抓取失败:', e.message);
+            }
+            return results;
+        }
+
+        // 来源3: DuckDuckGo搜索（HTML版，相对容易解析）
+        async function scrapeDuckDuckGo(cityName, type) {
+            const results = [];
+            const query = type === 'food' ? `${cityName} 美食推荐` : `${cityName} 景点推荐`;
+            const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+            try {
+                const html = await fetchViaProxy(url, 10000);
+                if (!html) return results;
+                // DDG HTML结果格式: class="result__a" 标题, class="result__snippet" 摘要
+                const resultRegex = /class="result__a"[^>]*>(.*?)<\/a>.*?(?:class="result__snippet"[^>]*>(.*?)<\/a>)?/gs;
+                let m;
+                while ((m = resultRegex.exec(html)) !== null) {
+                    const title = m[1].replace(/<[^>]+>/g, '').trim();
+                    const desc = (m[2] || '').replace(/<[^>]+>/g, '').trim();
+                    if (title.length >= 2 && title.length <= 50) {
+                        results.push({ title, desc });
+                    }
+                }
+                // 兜底：宽松匹配
+                if (results.length === 0) {
+                    const linkRegex = /<a[^>]*class="result__a"[^>]*>(.*?)<\/a>/g;
+                    let lm;
+                    while ((lm = linkRegex.exec(html)) !== null) {
+                        const title = lm[1].replace(/<[^>]+>/g, '').trim();
+                        if (title.length >= 2 && title.length <= 50) {
+                            results.push({ title, desc: '' });
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('DuckDuckGo抓取失败:', e.message);
+            }
+            return results;
+        }
+
+        // 来源4: Nominatim地理搜索 + Overpass详情查询（对任意城市自动获取bbox）
+        async function autoBboxAndOverpass(cityName) {
+            try {
+                // 用 Nominatim 搜索城市获取 bbox
+                const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cityName)}&format=json&limit=1&accept-language=zh`;
+                const resp = await fetchWithTimeout(url, 6000);
+                if (!resp.ok) return { food: [], attractions: [] };
+                const data = await resp.json();
+                if (!data || !data.length || !data[0].boundingbox) return { food: [], attractions: [] };
+                const bb = data[0].boundingbox; // [south, north, west, east]
+                const bbox = [parseFloat(bb[0]), parseFloat(bb[2]), parseFloat(bb[1]), parseFloat(bb[3])];
+                // 用获取到的 bbox 查询 Overpass
+                const [food, attractions] = await Promise.all([
+                    fetchFromOverpass(bbox, 'food'),
+                    fetchFromOverpass(bbox, 'attraction')
+                ]);
+                return {
+                    food: food.slice(0, 5),
+                    attractions: attractions.slice(0, 5),
+                    source: 'OpenStreetMap'
+                };
+            } catch (e) {
+                console.warn('Nominatim+Overpass自动查询失败:', e.message);
+                return { food: [], attractions: [] };
+            }
+        }
+
+        // 搜索结果解析：从标题和摘要中提取美食/景点
+        function parseSearchResults(searchResults, cityName, type) {
+            const items = [];
+            const seen = new Set();
+            // 常见分隔词
+            const separators = ['、','，',',',' ','|','/','·','—','–'];
+            // 过滤无关标题
+            const stopPatterns = [/下载/, /安装/, /注册/, /登录/, /广告/, /官网/, /App/i, /appstore/i, /\d+条结果/, /为您找到/];
+
+            for (const r of searchResults) {
+                let text = r.title || '';
+                // 去掉城市名前缀
+                text = text.replace(new RegExp(cityName + '[\u4e00-\u9fa5]{0,2}(?:美食|景点|旅游|攻略|推荐)'), '');
+                // 按|/—等分割，取有意义的部分
+                let parts = [text];
+                for (const sep of separators) {
+                    if (text.includes(sep)) {
+                        parts = text.split(sep);
+                        break;
+                    }
+                }
+                for (let part of parts) {
+                    part = part.trim();
+                    if (part.length < 2 || part.length > 15) continue;
+                    if (stopPatterns.some(p => p.test(part))) continue;
+                    // 美食关键词检测
+                    const foodOk = type === 'food' && /菜|面|粉|饼|饺|糕|肉|鱼|汤|粥|鸭|鸡|锅|烤|串|卤|酥|茶|馄|米线|豆花|粑|糕|糕点|火锅|小吃|甜品|饮品|烧烤|海鲜/.test(part);
+                    // 景点关键词检测
+                    const attrOk = type === 'attraction' && /公园|景区|博物馆|古迹|寺|塔|楼|阁|宫|院|陵|山|湖|河|海|湾|岛|桥|广场|祠|坛|园|堡|城墙|古镇|故居|遗址|温泉|瀑布|峡谷|草原|沙漠|湿地|海滩/.test(part);
+                    if (foodOk || attrOk) {
+                        if (!seen.has(part)) {
+                            seen.add(part);
+                            const desc = r.desc ? r.desc.substring(0, 80) : '';
+                            if (type === 'food') {
+                                items.push({ name: part, desc: desc, tags: ['搜索'], cuisine: '' });
+                            } else {
+                                items.push({ name: part, desc: desc, tags: ['搜索'], type: '景点' });
+                            }
+                        }
+                    }
+                }
+            }
+            return items;
+        }
+
+        // 综合爬虫入口：当本地/Overpass数据不足时，自动触发
+        async function scrapeFoodAndAttractions(cityName) {
+            console.log('🔍 启动网络爬虫，抓取:', cityName);
+            const foodResults = [];
+            const attrResults = [];
+
+            // 并行发起所有抓取请求
+            const [wikiData, autoOverpass, bingFood, bingAttr, ddgFood, ddgAttr] = await Promise.all([
+                scrapeWikiZh(cityName),
+                autoBboxAndOverpass(cityName),
+                scrapeBingSearch(cityName, 'food'),
+                scrapeBingSearch(cityName, 'attraction'),
+                scrapeDuckDuckGo(cityName, 'food'),
+                scrapeDuckDuckGo(cityName, 'attraction')
+            ]);
+
+            // 合并Wikipedia结果
+            if (wikiData.food.length) foodResults.push(...wikiData.food);
+            if (wikiData.attractions.length) attrResults.push(...wikiData.attractions);
+
+            // 合并自动Overpass结果
+            if (autoOverpass.food.length) foodResults.push(...autoOverpass.food);
+            if (autoOverpass.attractions.length) attrResults.push(...autoOverpass.attractions);
+
+            // 合并Bing搜索结果
+            const bingFoodItems = parseSearchResults(bingFood, cityName, 'food');
+            const bingAttrItems = parseSearchResults(bingAttr, cityName, 'attraction');
+            foodResults.push(...bingFoodItems);
+            attrResults.push(...bingAttrItems);
+
+            // 合并DuckDuckGo搜索结果
+            const ddgFoodItems = parseSearchResults(ddgFood, cityName, 'food');
+            const ddgAttrItems = parseSearchResults(ddgAttr, cityName, 'attraction');
+            foodResults.push(...ddgFoodItems);
+            attrResults.push(...ddgAttrItems);
+
+            // 去重（按名称）
+            const uniqueFood = dedupe(foodResults, 'name');
+            const uniqueAttr = dedupe(attrResults, 'name');
+
+            return {
+                food: uniqueFood.slice(0, 5),
+                attractions: uniqueAttr.slice(0, 5),
+                source: '网络抓取'
+            };
+        }
+
+        // 去重
+        function dedupe(arr, key) {
+            const seen = new Set();
+            return arr.filter(item => {
+                const k = item[key];
+                if (seen.has(k)) return false;
+                seen.add(k);
+                return true;
+            });
+        }
+
+        // ============================================================
+        // Overpass API 增强：扩大搜索范围、多端点降级
+        // ============================================================
+        const OVERPASS_ENDPOINTS = [
+            'https://overpass-api.de/api/interpreter',
+            'https://overpass.kumi.systems/api/interpreter',
+            'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+        ];
+
+        async function overpassQuery(query) {
+            // 尝试多个端点，依次降级
+            for (const endpoint of OVERPASS_ENDPOINTS) {
+                try {
+                    const resp = await fetchWithTimeout(endpoint + '?data=' + encodeURIComponent(query), 15000);
+                    if (!resp.ok) continue;
+                    const data = await resp.json();
+                    if (data.elements && data.elements.length > 0) return data.elements;
+                } catch (e) {
+                    console.warn('Overpass端点失败:', endpoint, e.message);
+                    continue;
+                }
+            }
+            return [];
+        }
+
+        async function fetchFromOverpass(bbox, type) {
+            const [south, west, north, east] = bbox;
+            let query;
+            if (type === 'food') {
+                // 扩大搜索：增加 cafe、pub、food_court 等
+                query = `[out:json][timeout:25];(node["amenity"~"restaurant|fast_food|cafe|pub|food_court|ice_cream"](${south},${west},${north},${east});way["amenity"~"restaurant|fast_food|cafe|pub|food_court|ice_cream"](${south},${west},${north},${east});node["shop"~"bakery|butcher|seafood|cheese|deli"](${south},${west},${north},${east}););out body center 30;`;
+            } else {
+                // 景点：增加 memorial、monastery、castle 等
+                query = `[out:json][timeout:25];(node["tourism"~"attraction|museum|gallery|viewpoint|theme_park|zoo|aquarium|memorial|monastery|castle|ruins|yes"](${south},${west},${north},${east});way["tourism"~"attraction|museum|gallery|viewpoint|theme_park|zoo|aquarium|memorial|monastery|castle|ruins|yes"](${south},${west},${north},${east});node["historic"~"monument|castle|ruins|archaeological_site|heritage"](${south},${west},${north},${east});way["historic"~"monument|castle|ruins|archaeological_site|heritage"](${south},${west},${north},${east}););out body center 30;`;
+            }
+
+            const elements = await overpassQuery(query);
+            const results = [];
+
+            for (const e of elements) {
+                const t = e.tags || {};
+                if (Object.keys(t).length === 0) continue;
+                const name = t.name || t['name:zh'] || t['name:en'];
+                if (!name) continue;
+
+                if (type === 'food') {
+                    const cuisine = cuisineToZh(t.cuisine);
+                    const addr = t['addr:street'] ? (t['addr:street'] + (t['addr:housenumber'] ? t['addr:housenumber'] + '号' : '')) : (t['addr:full'] || '');
+                    const phone = t.phone || t['contact:phone'] || '';
+                    const opening = t.opening_hours || '';
+                    results.push({
+                        name: name,
+                        desc: [cuisine ? `菜系：${cuisine}` : '', addr ? `地址：${addr}` : '', phone ? `电话：${phone}` : '', opening ? `营业：${opening}` : ''].filter(Boolean).join(' · '),
+                        tags: [cuisine ? cuisine : '餐厅', t.amenity === 'fast_food' ? '快餐' : t.amenity === 'cafe' ? '咖啡' : t.amenity === 'pub' ? '酒吧' : '正餐'].filter(v => v),
+                        cuisine: cuisine,
+                        addr: addr,
+                        phone: phone
+                    });
+                } else {
+                    const tourismType = TOURISM_MAP[t.tourism] || t.tourism || (t.historic ? '历史遗迹' : '景点');
+                    const desc = t.description || '';
+                    const addr = t['addr:street'] ? (t['addr:street'] + (t['addr:housenumber'] ? t['addr:housenumber'] + '号' : '')) : '';
+                    results.push({
+                        name: name,
+                        desc: [desc ? desc.substring(0, 60) : '', addr ? `地址：${addr}` : ''].filter(Boolean).join(' · '),
+                        tags: [tourismType, t.wikipedia ? '有百科' : ''].filter(Boolean),
+                        type: tourismType
+                    });
+                }
+            }
+            return results;
+        }
+
+        async function fetchFoodAndAttractions(cityName) {
+            let bbox = null;
+            let searchName = cityName;
+
+            // 先从内置城市库获取 bbox
+            const dbCity = matchCity(cityName);
+            if (dbCity && dbCity.bbox) bbox = dbCity.bbox;
+
+            // 如果是景区，用景区 bbox
+            if (!bbox) {
+                const spot = getScenicSpot(cityName);
+                if (spot && spot.bbox) {
+                    bbox = spot.bbox;
+                    searchName = spot.region.split(/省|市|州|自治区/)[0];
+                }
+            }
+
+            // 如果是省份，用省会
+            if (!bbox) {
+                const capital = getCapital(cityName);
+                if (capital) {
+                    const capCity = matchCity(capital);
+                    if (capCity && capCity.bbox) {
+                        bbox = capCity.bbox;
+                        searchName = capital;
+                    }
+                }
+            }
+
+            // 第1步：尝试 Overpass API（有bbox时）
+            if (bbox) {
+                try {
+                    const [food, attractions] = await Promise.all([
+                        fetchFromOverpass(bbox, 'food'),
+                        fetchFromOverpass(bbox, 'attraction')
+                    ]);
+
+                    if (food.length > 0 && attractions.length > 0) {
+                        return {
+                            food: food.slice(0, 5),
+                            attractions: attractions.slice(0, 5),
+                            source: 'OpenStreetMap'
+                        };
+                    }
+                    // Overpass 只有一部分数据时，先记住，后面可能要补全
+                    if (food.length > 0 || attractions.length > 0) {
+                        return {
+                            food: food.slice(0, 5),
+                            attractions: attractions.slice(0, 5),
+                            source: 'OpenStreetMap'
+                        };
+                    }
+                } catch (e) {
+                    console.warn('Overpass 查询失败:', e);
+                }
+            }
+
+            // 第2步：内置数据库
+            const fallbackCity = matchCity(cityName) || matchCity(getCapital(cityName) || '');
+            if (fallbackCity && fallbackCity.food.length && fallbackCity.attractions.length) {
+                return { food: fallbackCity.food, attractions: fallbackCity.attractions, source: '内置数据库' };
+            }
+
+            // 第3步：景区兜底
+            const spot = getScenicSpot(cityName);
+            if (spot) {
+                return {
+                    food: [],
+                    attractions: [{ name: cityName, desc: `${cityName}位于${spot.region}，${spot.desc}。`, tags: ['景区', '自然'] }],
+                    source: '景区数据'
+                };
+            }
+
+            // 第4步：触发网络爬虫，按需抓取
+            console.log('📡 本地数据不足，启动网络爬虫...');
+            updateLoadingText('正在从网络抓取数据，请稍候...');
+            try {
+                const scraped = await scrapeFoodAndAttractions(cityName);
+                if (scraped.food.length > 0 || scraped.attractions.length > 0) {
+                    return scraped;
+                }
+            } catch (e) {
+                console.warn('爬虫抓取失败:', e);
+            }
+
+            return { food: [], attractions: [], source: 'none' };
+        }
+
+        // ============================================================
+        // 渲染函数
+        // ============================================================
+        function renderWeather(weather) {
+            return `
+                <div class="weather-card fade-in">
+                    <div class="weather-main">
+                        <div class="weather-icon">${weather.weatherEmoji}</div>
+                        <div class="weather-temp">
+                            <span class="temp">${weather.temperature}°C</span>
+                            <span class="desc">${weather.weatherText} · ${escapeHtml(weather.city)}</span>
+                        </div>
+                    </div>
+                    <div class="weather-details">
+                        <div class="weather-detail-item"><div class="label">体感温度</div><div class="value">${weather.apparentTemp}°C</div></div>
+                        <div class="weather-detail-item"><div class="label">湿度</div><div class="value">${weather.humidity}%</div></div>
+                        <div class="weather-detail-item"><div class="label">风速</div><div class="value">${weather.windSpeed} km/h</div></div>
+                        <div class="weather-detail-item"><div class="label">风向</div><div class="value">${weather.windDir}</div></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 当前搜索的城市名（用于空数据跳转）
+        var _currentCityName = '';
+
+        function renderItems(items, type) {
+            if (!items || items.length === 0) {
+                const city = escapeHtml(_currentCityName || '');
+                const searchWord = type === 'food' ? `${city} 美食推荐` : `${city} 景点推荐`;
+                return `
+                    <div class="empty-msg">
+                        <p style="margin-bottom:10px;">暂未找到数据</p>
+                        <p style="font-size:12px;color:var(--text-light);margin-bottom:12px;">去小红书或抖音搜索更多${type === 'food' ? '美食' : '景点'}信息</p>
+                        <div style="display:flex;gap:8px;justify-content:center;">
+                            <button onclick="openSearch('xhs', '${escapeHtml(searchWord)}')" class="search-btn xhs" style="padding:8px 16px;font-size:13px;">📕 小红书搜索${type === 'food' ? '美食' : '景点'}</button>
+                            <button onclick="openSearch('dy', '${escapeHtml(searchWord)}')" class="search-btn dy" style="padding:8px 16px;font-size:13px;">🎵 抖音搜索${type === 'food' ? '美食' : '景点'}</button>
+                        </div>
+                    </div>`;
+            }
+            const tagClass = type === 'food' ? 'amber' : 'green';
+            return items.map((item, i) => {
+                const typeBadge = type === 'food'
+                    ? (item.cuisine ? `<span class="item-type-badge">${escapeHtml(item.cuisine)}</span>` : '')
+                    : (item.type ? `<span class="item-type-badge green">${escapeHtml(item.type)}</span>` : '');
+
+                let metaRow = '';
+                if (item.addr || item.phone) {
+                    const metaParts = [];
+                    if (item.addr) metaParts.push(`📍 ${escapeHtml(item.addr)}`);
+                    if (item.phone) metaParts.push(`☎ ${escapeHtml(item.phone)}`);
+                    metaRow = `<div class="item-meta">${metaParts.map(m => `<span>${m}</span>`).join('')}</div>`;
+                }
+
+                const keyword = item.name;
+
+                return `
+                    <div class="item-card fade-in" style="animation-delay: ${i * 0.08}s">
+                        <div class="item-header">
+                            <div class="item-name-wrap">
+                                <span class="item-number">${i + 1}</span>
+                                <span class="item-name">${escapeHtml(item.name)}</span>
+                            </div>
+                            ${typeBadge}
+                        </div>
+                        ${metaRow}
+                        ${item.desc ? `<div class="item-desc">${escapeHtml(item.desc)}</div>` : ''}
+                        <div class="item-bottom">
+                            ${item.tags ? `<div class="item-tags">${item.tags.map(t => `<span class="item-tag ${tagClass}">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+                            <div class="search-links">
+                                <button onclick="openSearch('xhs', '${escapeHtml(keyword)}')" class="search-btn xhs" title="在小红书搜索">📕 小红书</button>
+                                <button onclick="openSearch('dy', '${escapeHtml(keyword)}')" class="search-btn dy" title="在抖音搜索">🎵 抖音</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderResult(weather, data) {
+            const sourceBadge = data.source === 'OpenStreetMap'
+                ? '<span class="data-source">🗺️ 数据来源：OpenStreetMap</span>'
+                : data.source === '内置数据库'
+                    ? '<span class="data-source">💾 数据来源：内置数据库</span>'
+                    : data.source === '景区数据'
+                        ? '<span class="data-source">🏔️ 数据来源：景区数据</span>'
+                        : data.source === '网络抓取'
+                            ? '<span class="data-source">🔍 数据来源：网络抓取（百科/搜索）</span>'
+                            : '';
+
+            const foodSection = renderItems(data.food, 'food');
+            const attractionSection = renderItems(data.attractions, 'attraction');
+
+            document.getElementById('result').innerHTML = `
+                <div class="section-title">🌤️ 天气实况</div>
+                ${renderWeather(weather)}
+                <div class="content-grid">
+                    <div class="content-section">
+                        <h2>🍲 美食推荐 ${sourceBadge}</h2>
+                        ${foodSection}
+                    </div>
+                    <div class="content-section">
+                        <h2>🏞 景点推荐</h2>
+                        ${attractionSection}
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateLoadingText(msg) {
+            const el = document.querySelector('.loading p');
+            if (el) el.textContent = msg;
+        }
+
+        function renderLoading() {
+            document.getElementById('result').innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>正在查询中，请稍候...</p>
+                </div>
+            `;
+        }
+
+        function renderError(msg) {
+            document.getElementById('result').innerHTML = `
+                <div class="error-msg">
+                    <p style="font-size: 48px; margin-bottom: 16px;">😕</p>
+                    <p>${escapeHtml(msg)}</p>
+                </div>
+            `;
+        }
+
+        // ============================================================
+        // 主搜索逻辑
+        // ============================================================
+        async function handleSearch() {
+            const input = document.getElementById('cityInput');
+            const cityName = input.value.trim();
+            if (!cityName) { renderError('请输入城市名称'); return; }
+
+            _currentCityName = cityName;
+            renderLoading();
+
+            try {
+                const [weather, data] = await Promise.all([
+                    fetchWeather(cityName),
+                    fetchFoodAndAttractions(cityName)
+                ]);
+                renderResult(weather, data);
+                try { localStorage.setItem('lastCity', cityName); } catch (e) {}
+            } catch (error) {
+                console.error('查询失败:', error);
+                const fallbackName = getCapital(cityName) || cityName;
+                const dbCity = matchCity(fallbackName);
+                if (dbCity) {
+                    renderResult(
+                        { city: dbCity.city, temperature: '--', weatherText: '获取失败', weatherEmoji: '❓', apparentTemp: '--', humidity: '--', windSpeed: '--', windDir: '--' },
+                        { food: dbCity.food, attractions: dbCity.attractions, source: '内置数据库' }
+                    );
+                } else {
+                    const spot = getScenicSpot(cityName);
+                    if (spot) {
+                        renderResult(
+                            { city: cityName, temperature: '--', weatherText: '获取失败', weatherEmoji: '❓', apparentTemp: '--', humidity: '--', windSpeed: '--', windDir: '--' },
+                            { food: [], attractions: [{ name: cityName, desc: `${cityName}位于${spot.region}，${spot.desc}。`, tags: ['景区', '自然'] }], source: '景区数据' }
+                        );
+                    } else {
+                        renderError(`无法识别地址「${cityName}」，请输入正确城市名称。`);
+                    }
+                }
+            }
+        }
+
+        // ============================================================
+        // 初始化
+        // ============================================================
+        renderQuickCities();
+        document.getElementById('cityInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleSearch();
+        });
+        try {
+            const lastCity = localStorage.getItem('lastCity');
+            if (lastCity) document.getElementById('cityInput').value = lastCity;
+        } catch (e) {}
+
+        // 微信环境检测
+        if (isWechat()) {
+            const banner = document.createElement('div');
+            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;background:#FFF3CD;color:#856404;padding:8px 16px;font-size:12px;text-align:center;line-height:1.5;';
+            banner.innerHTML = '⚠️ 微信内无法跳转APP，请点击右上角 <strong>···</strong> 选择「在浏览器中打开」';
+            document.body.insertBefore(banner, document.body.firstChild);
+        }
+    </script>
+</body>
+</html>
