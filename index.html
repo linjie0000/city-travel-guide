@@ -959,25 +959,80 @@
             const encoded = encodeURIComponent(keyword);
             closeActionSheet();
 
+            showJumpToast('正在打开APP...');
+
             if (platform === 'xhs') {
+                // iOS 和 Android 都用 scheme 拉起APP
+                const appScheme = `xhsdiscover://search/result?keyword=${encoded}`;
                 if (isIOS()) {
-                    // iOS: Universal Link（装了APP自动拉起，没装打开网页）
-                    window.location.href = `https://www.xiaohongshu.com/search_result?keyword=${encoded}&source=web_explore_feed`;
+                    // iOS: 用隐藏 iframe 尝试拉起，监听页面可见性判断是否成功
+                    tryOpenAppScheme(appScheme, '小红书');
                 } else {
-                    // Android: scheme拉起
-                    window.location.href = `xhsdiscover://search/result?keyword=${encoded}`;
+                    // Android: 直接设置 location，2.5秒后检测是否失败
+                    tryOpenAppScheme(appScheme, '小红书');
                 }
             } else {
                 // 抖音
+                const appScheme = `snssdk1128://search/detail?keyword=${encoded}`;
                 if (isIOS()) {
-                    // iOS: 抖音网页版会自动弹窗拉起APP
-                    window.location.href = `https://www.douyin.com/search/${encoded}`;
+                    tryOpenAppScheme(appScheme, '抖音');
                 } else {
-                    // Android: scheme拉起
-                    window.location.href = `snssdk1128://search/detail?keyword=${encoded}`;
+                    tryOpenAppScheme(appScheme, '抖音');
                 }
             }
-            showJumpToast('正在打开APP...');
+        }
+
+        // 统一的 APP Scheme 拉起逻辑：尝试打开APP，失败则提示
+        function tryOpenAppScheme(schemeUrl, appName) {
+            const start = Date.now();
+            let jumped = false;
+
+            // 通过 visibilitychange 检测 APP 是否被拉起
+            function onVisibility() {
+                if (document.hidden) {
+                    jumped = true;
+                    cleanup();
+                }
+            }
+            function onPageShow() {
+                // 用户从APP切回来
+                setTimeout(() => {
+                    if (!jumped) return;
+                    cleanup();
+                    showJumpToast('已返回，页面保持不变');
+                }, 300);
+            }
+            function cleanup() {
+                document.removeEventListener('visibilitychange', onVisibility);
+                document.removeEventListener('pagehide', onVisibility);
+            }
+
+            document.addEventListener('visibilitychange', onVisibility);
+            document.addEventListener('pagehide', onVisibility);
+            window.addEventListener('pageshow', onPageShow, { once: true });
+
+            // 执行跳转
+            if (isIOS()) {
+                // iOS: 用 location.href 触发 scheme
+                window.location.href = schemeUrl;
+            } else {
+                // Android: 用隐藏 iframe + location 双保险
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = schemeUrl;
+                document.body.appendChild(iframe);
+                setTimeout(() => iframe.remove(), 3000);
+                // 同时也设置 location（部分浏览器需要）
+                window.location.href = schemeUrl;
+            }
+
+            // 超时检测：如果 3 秒后页面仍然可见，说明拉起失败
+            setTimeout(() => {
+                cleanup();
+                if (!jumped && !document.hidden) {
+                    showJumpToast(`未检测到${appName}APP，可能未安装`);
+                }
+            }, 3000);
         }
 
         function actionSheetWebAction() {
